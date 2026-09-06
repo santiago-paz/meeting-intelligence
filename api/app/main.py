@@ -6,7 +6,7 @@ from app.parsing import TranscriptParseError, parse_transcript
 app = FastAPI(title="Meeting Intelligence API")
 
 
-@app.post("/meetings", status_code=201, response_model=MeetingResponse)
+@app.post("/meetings", response_model=MeetingResponse)
 async def create_meeting(file: UploadFile) -> MeetingResponse:
     """Ingest a transcript. For now that means parsing it into speaker turns;
     chunking, extraction and persistence will join this pipeline step by step."""

@@ -13,7 +13,7 @@ def test_create_meeting_returns_turns_for_an_uploaded_transcript():
         files={"file": ("meeting.txt", content, "text/plain")},
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 200
     turns = response.json()["turns"]
     assert [t["speaker"] for t in turns] == ["Marco", "Ana"]
     assert turns[0]["idx"] == 0
@@ -47,7 +47,7 @@ def test_create_meeting_accepts_a_utf8_file_with_a_bom():
         files={"file": ("meeting.txt", content, "text/plain")},
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json()["turns"][0]["speaker"] == "Marco"
 
 
