@@ -1,0 +1,28 @@
+[project]
+name = "newpage-meeting-intelligence-api"
+version = "0.1.0"
+description = "Meeting Intelligence System - ingest and retrieval service"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "python-multipart>=0.0.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx2>=0.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+    # Starlette's own TestClient still uses the old anyio alias; not ours to fix.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
