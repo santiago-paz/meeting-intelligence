@@ -12,3 +12,13 @@ class Turn(BaseModel):
 
 class MeetingResponse(BaseModel):
     turns: list[Turn]
+
+
+class Chunk(BaseModel):
+    """A window of consecutive whole turns, rendered as the text that gets embedded."""
+
+    idx: int
+    turn_start: int
+    turn_end: int
+    text: str
+    token_estimate: int
