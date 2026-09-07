@@ -85,32 +85,41 @@ Two services, one database and one external API. Everything about AI lives
 in Python; TypeScript owns pixels. The web app could be replaced by a CLI
 without touching retrieval.
 
+```mermaid
+flowchart TB
+    browser["Browser"]
+
+    subgraph web["Web · port 3000"]
+        next["Next.js 16 · App Router<br/>Meetings · Ask · Traces"]
+    end
+
+    subgraph api["API · port 8000"]
+        fastapi["FastAPI · Python 3.13<br/>Ingest · Retrieve · Answer · Check citations"]
+        embeddings["Local embeddings<br/>bge-small-en-v1.5 · ONNX on CPU<br/>384 dimensions · runs inside the API process"]
+        fastapi --> embeddings
+    end
+
+    database[("Postgres 17 + pgvector<br/>Transcripts · Decisions · Action items · Traces<br/>HNSW vector index")]
+    anthropic["Anthropic API<br/>Haiku 4.5 · Context headers<br/>Opus 5 · Extraction and answers<br/>Sonnet 5 · Evaluation judge"]
+
+    browser <-->|"Pages and interactions"| next
+    next <-->|"Server-side requests and answer stream"| fastapi
+    fastapi <-->|"Store and retrieve"| database
+    fastapi <-->|"Model calls"| anthropic
+
+    classDef client fill:#202223,stroke:#687078,color:#f2f3f3
+    classDef service fill:#163b2a,stroke:#6ee7a0,color:#f2f3f3
+    classDef dependency fill:#182736,stroke:#8fbce6,color:#f2f3f3
+    class browser client
+    class next,fastapi service
+    class embeddings,database,anthropic dependency
+    style web fill:transparent,stroke:#687078
+    style api fill:transparent,stroke:#687078
 ```
-browser
-   |
-   v
-web    Next.js 16, App Router                                   port 3000
-       pages: meetings, ask, traces
-       route handlers forward uploads and the answer stream to the API,
-       server components read from it, the browser never talks to the API
-   |
-   v
-api    FastAPI, Python 3.13                                     port 8000
-       ingest   parse -> chunk -> context headers + extraction -> embed
-                -> check the rows -> store, in one transaction
-       answer   classic: embed the question, top 8 chunks, one model call
-                agentic: table of contents + search_transcripts / read_turns,
-                         up to 5 tool rounds
-       both     citation check -> cost -> trace
-   |                       |                         |
-   v                       v                         v
-db                        Anthropic API              bge-small-en-v1.5
-Postgres 17 + pgvector    Haiku 4.5  context headers ONNX on CPU, in-process
-HNSW index on chunks      Opus 5     extraction,     384-dimension vectors
-meetings, turns, chunks,             answers, agent
-decisions, action_items,  Sonnet 5   eval judge
-traces
-```
+
+The browser only talks to Next.js. The API is the only service with database
+access; embeddings run locally inside that same Python process.
+
 
 The web service owns the pages and nothing else. Uploads and questions go
 through a Next route handler that forwards to the API, reads happen in
