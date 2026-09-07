@@ -1,4 +1,7 @@
 import re
+from datetime import date
+
+from pydantic import BaseModel
 
 from app.models import Turn
 
@@ -11,6 +14,8 @@ class TranscriptParseError(ValueError):
 # The speaker is everything up to the first colon, so colons inside the
 # utterance survive.
 _TURN_LINE = re.compile(r"^\[(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\]\s+([^:]+):\s*(.*)$")
+_DATE_LINE = re.compile(r"^date\s*:\s*(\d{4}-\d{2}-\d{2})", re.IGNORECASE)
+_FILENAME_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
 
 
 def parse_transcript(raw: str) -> list[Turn]:
@@ -45,3 +50,44 @@ def parse_transcript(raw: str) -> list[Turn]:
 
 def _to_seconds(hours: str | None, minutes: str, seconds: str) -> int:
     return int(hours or 0) * 3600 + int(minutes) * 60 + int(seconds)
+
+
+class TranscriptMetadata(BaseModel):
+    title: str | None
+    date: date | None
+
+
+def parse_metadata(raw: str) -> TranscriptMetadata:
+    """Title and date from the header lines before the first turn, when present.
+
+    The first plain line is the title; a "Date: YYYY-MM-DD" line is the date.
+    Lines with a colon (Attendees: ...) are never mistaken for a title.
+    """
+    title: str | None = None
+    found: date | None = None
+    for line in raw.splitlines():
+        if _TURN_LINE.match(line):
+            break
+        stripped = line.strip()
+        if not stripped:
+            continue
+        match = _DATE_LINE.match(stripped)
+        if match:
+            try:
+                found = date.fromisoformat(match.group(1))
+            except ValueError:
+                found = None
+            continue
+        if title is None and ":" not in stripped:
+            title = stripped
+    return TranscriptMetadata(title=title, date=found)
+
+
+def date_from_filename(filename: str) -> date | None:
+    match = _FILENAME_DATE.match(filename)
+    if not match:
+        return None
+    try:
+        return date.fromisoformat(match.group(1))
+    except ValueError:
+        return None

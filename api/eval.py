@@ -32,6 +32,7 @@ def main() -> int:
     parser.add_argument("--golden", default=str(ROOT / "fixtures" / "golden.json"))
     parser.add_argument("--out", default=str(ROOT / "eval-runs"))
     parser.add_argument("--check-judge", action="store_true", help="probe the judge, run nothing else")
+    parser.add_argument("--index", action="store_true", help="put the extracted rows into the prompt (off by default, see design doc)")
     args = parser.parse_args()
 
     settings = Settings()
@@ -53,10 +54,11 @@ def main() -> int:
         run(
             golden, api_url=args.api, mode=args.mode, judge_client=judge_client,
             judge_model=args.judge_model, concurrency=args.concurrency, out_root=Path(args.out),
+            use_index=args.index,
         )
     )
     print()
-    print(format_summary(summary, args.mode))
+    print(format_summary(summary, f"{args.mode} (with index)" if args.index else args.mode))
     print(f"\nrows: {out_dir / 'results.jsonl'}\nsummary: {out_dir / 'summary.json'}")
     return 1 if summary.errors else 0
 

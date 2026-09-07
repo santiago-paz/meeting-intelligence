@@ -151,3 +151,105 @@ def test_ask_without_an_anthropic_key_is_a_clear_503(client_without_llm):
 
 def test_ask_rejects_an_empty_question(client):
     assert client.post("/ask", json={"question": ""}).status_code == 422
+
+
+WITH_HEADER = (
+    b"Weekly Sync\nDate: 2026-09-08\nAttendees: Marco, Ana\n\n"
+    b"[00:12:04] Marco: Arrancamos.\n[00:12:11] Ana: Dale, yo mando los mockups."
+)
+
+
+def _extracting(client_app, decisions=(), action_items=()):
+    from app.extraction import Extraction
+    from app.main import get_extractor
+    from tests.fakes import FakeExtractor
+
+    client_app.dependency_overrides[get_extractor] = lambda: FakeExtractor(
+        Extraction(decisions=list(decisions), action_items=list(action_items))
+    )
+
+
+def test_create_meeting_stores_extracted_rows_and_counts_the_discarded_ones(client):
+    from app.extraction import ExtractedActionItem, ExtractedDecision
+    from app.main import app
+
+    _extracting(
+        app,
+        decisions=[
+            ExtractedDecision(statement="We start now.", decided_by="Marco", turn=0, confidence=0.9),
+            ExtractedDecision(statement="Ghost.", decided_by="Marco", turn=9, confidence=0.9),
+        ],
+        action_items=[
+            ExtractedActionItem(task="Send the mockups.", owner="Ana", due_text="today",
+                                due_date="2026-09-08", status="open", turn=1, confidence=0.8),
+        ],
+    )
+
+    body = _upload(client, WITH_HEADER).json()
+
+    assert (body["decisions"], body["action_items"], body["discarded"]) == (1, 1, 1)
+    detail = client.get(f"/meetings/{body['id']}").json()
+    assert detail["meeting_date"] == "2026-09-08"
+    assert detail["decisions"] == [{"statement": "We start now.", "decided_by": "Marco", "turn": 0, "confidence": 0.9}]
+    assert detail["action_items"][0]["owner"] == "Ana"
+    assert detail["action_items"][0]["due_date"] == "2026-09-08"
+
+
+def test_meeting_date_falls_back_to_the_filename_and_then_to_nothing(client):
+    dated = _upload(client, filename="2026-09-01-q4.txt").json()
+    undated = _upload(client, filename="meeting.txt").json()
+
+    assert client.get(f"/meetings/{dated['id']}").json()["meeting_date"] == "2026-09-01"
+    assert client.get(f"/meetings/{undated['id']}").json()["meeting_date"] is None
+
+
+def test_ask_shows_the_extracted_index_to_the_model(client):
+    from app.extraction import ExtractedDecision
+    from app.main import app, get_answerer
+    from tests.fakes import FakeAnswerer
+
+    _extracting(app, decisions=[ExtractedDecision(statement="We start now.", decided_by="Marco", turn=0, confidence=0.9)])
+    _upload(client, WITH_HEADER)
+    fake = FakeAnswerer("We start now. [[M1#0]]")
+    app.dependency_overrides[get_answerer] = lambda: fake
+
+    body = client.post("/ask", json={"question": "What did we decide?", "use_index": True}).json()
+
+    prompt = fake.prompts[0]
+    assert "<index>" in prompt
+    assert '[[M1#0]] Decision (Marco): We start now.' in prompt
+    assert 'date="2026-09-08"' in prompt
+    assert body["index_rows"] == 1
+    assert body["citations"][0]["turn"] == 0
+
+
+def test_ask_can_leave_the_index_out_so_the_two_prompts_can_be_compared(client):
+    from app.extraction import ExtractedDecision
+    from app.main import app, get_answerer
+    from tests.fakes import FakeAnswerer
+
+    _extracting(app, decisions=[ExtractedDecision(statement="We start now.", decided_by="Marco", turn=0, confidence=0.9)])
+    _upload(client, WITH_HEADER)
+    fake = FakeAnswerer("We start now. [[M1#0]]")
+    app.dependency_overrides[get_answerer] = lambda: fake
+
+    body = client.post("/ask", json={"question": "What did we decide?", "use_index": False}).json()
+
+    assert "<index>" not in fake.prompts[0]
+    assert body["index_rows"] == 0
+
+
+def test_classic_mode_leaves_the_index_out_by_default(client):
+    from app.extraction import ExtractedDecision
+    from app.main import app, get_answerer
+    from tests.fakes import FakeAnswerer
+
+    _extracting(app, decisions=[ExtractedDecision(statement="We start now.", decided_by="Marco", turn=0, confidence=0.9)])
+    _upload(client, WITH_HEADER)
+    fake = FakeAnswerer("We start now. [[M1#0]]")
+    app.dependency_overrides[get_answerer] = lambda: fake
+
+    body = client.post("/ask", json={"question": "What did we decide?"}).json()
+
+    assert "<index>" not in fake.prompts[0]
+    assert body["index_rows"] == 0

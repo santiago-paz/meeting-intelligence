@@ -86,3 +86,32 @@ def test_accepts_speaker_names_with_spaces_dots_and_accents():
     turns = parse_transcript("[00:00:01] Dr. Ana Pérez: Buenas.")
 
     assert turns[0].speaker == "Dr. Ana Pérez"
+
+
+from datetime import date
+
+from app.parsing import date_from_filename, parse_metadata
+
+
+def test_reads_title_and_date_from_the_header_before_the_first_turn():
+    raw = "Q4 Planning\nDate: 2026-09-01\nAttendees: Marco, Ana\n\n[00:00:04] Marco: Hi."
+
+    meta = parse_metadata(raw)
+
+    assert meta.title == "Q4 Planning"
+    assert meta.date == date(2026, 9, 1)
+
+
+def test_metadata_is_empty_when_the_transcript_starts_with_a_turn():
+    meta = parse_metadata("[00:00:04] Marco: Hi.\nAttendees: nobody")
+
+    assert (meta.title, meta.date) == (None, None)
+
+
+def test_a_bad_date_line_is_ignored_rather_than_raised():
+    assert parse_metadata("Sync\nDate: 2026-13-45\n[00:00:04] A: x").date is None
+
+
+def test_date_from_filename_prefix():
+    assert date_from_filename("2026-09-08-weekly-sync.txt") == date(2026, 9, 8)
+    assert date_from_filename("weekly-sync.txt") is None

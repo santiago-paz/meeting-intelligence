@@ -19,12 +19,14 @@ class Api:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def ask(self, question: str, mode: str) -> dict:
+    async def ask(self, question: str, mode: str, use_index: bool = False) -> dict:
         """POST /ask, retrying transport errors and 5xx twice with backoff."""
         delay = 2.0
         for attempt in range(3):
             try:
-                response = await self._client.post("/ask", json={"question": question, "mode": mode})
+                response = await self._client.post(
+                    "/ask", json={"question": question, "mode": mode, "use_index": use_index}
+                )
             except httpx.TransportError as exc:
                 if attempt == 2:
                     raise
@@ -70,25 +72,29 @@ def _error_row(q: GoldenQuestion, error: str) -> Row:
 
 async def grade_one(
     q: GoldenQuestion, api: Api, judge_client, judge_model: str, mode: str,
-    turns: dict[str, dict[int, dict]],
+    turns: dict[str, dict[int, dict]], use_index: bool = False,
 ) -> Row:
     try:
-        response = await api.ask(q.question, mode)
+        response = await api.ask(q.question, mode, use_index)
     except Exception as exc:  # noqa: BLE001 - every failure must land in the table
         return _error_row(q, f"ask: {type(exc).__name__}: {exc}")
     retrieved_cov, cited_cov = turn_coverage(q.expected_turns, response["retrieved"], response["citations"])
-    try:
-        verdict = await judge(
-            judge_client,
-            question=q.question,
-            answer=response["answer"],
-            cited_lines=cited_lines(response["citations"], turns),
-            key_facts=q.key_facts,
-            must_not_claim=q.must_not_claim,
-            model=judge_model,
-        )
-    except Exception as exc:  # noqa: BLE001
-        return _error_row(q, f"judge: {type(exc).__name__}: {exc}")
+    verdict = None
+    for attempt in range(2):  # one retry: a judge that parses nothing once is not a verdict
+        try:
+            verdict = await judge(
+                judge_client,
+                question=q.question,
+                answer=response["answer"],
+                cited_lines=cited_lines(response["citations"], turns),
+                key_facts=q.key_facts,
+                must_not_claim=q.must_not_claim,
+                model=judge_model,
+            )
+            break
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 1:
+                return _error_row(q, f"judge: {type(exc).__name__}: {exc}")
     return Row(
         id=q.id, type=q.type, status="ok", error=None,
         refused=response["refused"], expect_refusal=q.expect_refusal,
@@ -108,11 +114,12 @@ async def grade_one(
 
 async def run(
     golden: list[GoldenQuestion], *, api_url: str, mode: str, judge_client,
-    judge_model: str = JUDGE_MODEL, concurrency: int = 3, out_root: Path,
+    judge_model: str = JUDGE_MODEL, concurrency: int = 3, out_root: Path, use_index: bool = False,
 ) -> tuple[list[Row], Summary, Path]:
     api = Api(api_url)
     semaphore = asyncio.Semaphore(concurrency)
-    out_dir = out_root / f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{mode}"
+    variant = f"{mode}-index" if use_index else mode
+    out_dir = out_root / f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{variant}"
     out_dir.mkdir(parents=True, exist_ok=True)
     results_path = out_dir / "results.jsonl"
     started = time.monotonic()
@@ -121,7 +128,7 @@ async def run(
 
         async def one(q: GoldenQuestion) -> Row:
             async with semaphore:
-                row = await grade_one(q, api, judge_client, judge_model, mode, turns)
+                row = await grade_one(q, api, judge_client, judge_model, mode, turns, use_index)
             with results_path.open("a", encoding="utf-8") as f:
                 f.write(row.model_dump_json() + "\n")
             print(format_row(row), flush=True)
@@ -135,7 +142,7 @@ async def run(
     summary = summarize(rows)
     (out_dir / "summary.json").write_text(
         json.dumps({
-            "mode": mode, "judge_model": judge_model, "api_url": api_url,
+            "mode": mode, "use_index": use_index, "judge_model": judge_model, "api_url": api_url,
             "wall_seconds": round(time.monotonic() - started, 1),
             **summary.model_dump(),
         }, indent=2) + "\n",

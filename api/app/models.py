@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -19,6 +19,9 @@ class MeetingCreated(BaseModel):
     title: str
     turn_count: int
     chunk_count: int
+    decisions: int = 0
+    action_items: int = 0
+    discarded: int = 0
 
 
 class Chunk(BaseModel):
@@ -38,13 +41,17 @@ class MeetingDetail(BaseModel):
     id: UUID
     title: str
     created_at: datetime
+    meeting_date: date | None = None
     turns: list[Turn]
+    decisions: list["Decision"] = []
+    action_items: list["ActionItem"] = []
 
 
 class MeetingSummary(BaseModel):
     id: UUID
     title: str
     created_at: datetime
+    meeting_date: date | None = None
     turn_count: int
 
 
@@ -99,6 +106,7 @@ class Trace(BaseModel):
     cache_write_tokens: int
     cost_usd: float
     latency_ms: int
+    index_rows: int = 0
 
 
 class AskResponse(Trace):
@@ -110,3 +118,40 @@ class AskRequest(BaseModel):
     mode: Literal["classic"] = "classic"
     meeting_id: UUID | None = None
     limit: int = Field(default=8, ge=1, le=20)
+    # Whether the extracted decisions and action items go into the prompt.
+    # Off by default in classic mode: measured on the same retrieval, the
+    # index fixed one aggregation question and cut faithfulness from ~90% to
+    # ~65% at 40% more cost. See docs/design.md, Decisions, 2026-09-07.
+    use_index: bool = False
+
+
+class Decision(BaseModel):
+    statement: str
+    decided_by: str | None
+    turn: int
+    confidence: float
+
+
+class ActionItem(BaseModel):
+    task: str
+    owner: str | None
+    due_text: str | None
+    due_date: date | None
+    status: str
+    turn: int
+    confidence: float
+
+
+class IndexRow(BaseModel):
+    """One extracted row with where it came from, for the index the model reads."""
+
+    kind: Literal["decision", "action"]
+    meeting_id: UUID
+    meeting_title: str
+    meeting_date: date | None
+    turn: int
+    text: str
+    who: str | None
+    due_text: str | None
+    due_date: date | None
+    status: str | None

@@ -41,3 +41,13 @@ class FakeAnswerer:
             text=self.text, model="fake-model", stop_reason="end_turn",
             input_tokens=100, output_tokens=20, cache_read_tokens=0, cache_write_tokens=0,
         )
+
+
+class FakeExtractor:
+    def __init__(self, extraction=None) -> None:
+        from app.extraction import Extraction
+
+        self.extraction = extraction or Extraction(decisions=[], action_items=[])
+
+    async def extract(self, numbered_transcript: str, meeting_date):
+        return self.extraction

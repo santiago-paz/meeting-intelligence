@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -5,7 +6,10 @@ import pytest
 from app.answering import (
     ANSWER_MODEL,
     ChunkContext,
+    Citable,
     ClaudeAnswerer,
+    IndexEntry,
+    IndexSection,
     build_prompt,
     parse_markers,
     validate_citations,
@@ -25,7 +29,7 @@ def _context(ref: str, meeting_id, title: str, turns: list[tuple[int, str, int, 
         text="", context_header=f"About {title}", similarity=0.7,
     )
     return ChunkContext(
-        ref=ref, hit=hit,
+        ref=ref, meeting_id=meeting_id, meeting_title=title, hit=hit,
         turns=[Turn(idx=i, speaker=s, start_seconds=sec, text=t) for i, s, sec, t in turns],
     )
 
@@ -150,3 +154,48 @@ def test_none_marker_next_to_real_citations_is_not_a_refusal():
     assert result.refused is False
     assert [c.turn for c in result.citations] == [5]
     assert result.answer == "No raise was approved; it was a joke. [[M2#5]]"
+
+
+INDEX = [
+    IndexSection(
+        ref="M3", meeting_title="retro", meeting_date=date(2026, 9, 29),
+        entries=[
+            IndexEntry(kind="decision", turn=15, text="No meetings on Wednesdays.", who="Marco", due=None, status=None),
+            IndexEntry(kind="action", turn=28, text="Write the deploy process.", who="Diego", due="mid October (2026-10-15)", status="open"),
+            IndexEntry(kind="action", turn=7, text="Look at checkout.", who=None, due=None, status="open"),
+        ],
+    )
+]
+
+
+def test_prompt_lists_extracted_rows_as_citable_index_entries():
+    prompt = build_prompt("What did we decide?", CONTEXTS, INDEX)
+
+    assert '<meeting ref="M3" title="retro" date="2026-09-29">' in prompt
+    assert "[[M3#15]] Decision (Marco): No meetings on Wednesdays." in prompt
+    assert "[[M3#28]] Action (owner: Diego, due: mid October (2026-10-15), open): Write the deploy process." in prompt
+    assert "[[M3#7]] Action (owner: nobody yet, open): Look at checkout." in prompt
+    assert prompt.index("<index>") < prompt.index("Question:")
+
+
+def test_a_citation_to_an_index_turn_validates_through_a_citable():
+    citable = Citable(
+        ref="M3", meeting_id=MEETING_B, meeting_title="retro",
+        turns=[Turn(idx=15, speaker="Marco", start_seconds=98, text="Then it's decided.")],
+    )
+
+    result = validate_citations("No Wednesday meetings. [[M3#15]]", [*CONTEXTS, citable])
+
+    assert [(c.ref, c.turn, c.speaker) for c in result.citations] == [("M3", 15, "Marco")]
+    assert result.dropped == 0
+
+
+async def test_the_rules_tell_the_model_the_index_is_a_summary_to_check_against_excerpts():
+    client = FakeClient()
+
+    await ClaudeAnswerer(client).answer("prompt")
+
+    system = client.messages.calls[0]["system"]
+    assert "index" in system and "summary" in system
+    assert "check the excerpts before" in system
+    assert "only for what the entry itself states" in system

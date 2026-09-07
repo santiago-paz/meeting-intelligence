@@ -57,3 +57,15 @@ def test_keeps_an_oversized_turn_in_its_own_chunk_without_overlap():
 
 def test_returns_no_chunks_for_no_turns():
     assert build_chunks([], max_tokens=60) == []
+
+
+from app.chunking import render_numbered_turns
+
+
+def test_numbered_rendering_carries_the_turn_index_the_model_must_cite():
+    turns = [
+        Turn(idx=0, speaker="Marco", start_seconds=724, text="Hola."),
+        Turn(idx=1, speaker="Ana", start_seconds=3671, text="Dale."),
+    ]
+
+    assert render_numbered_turns(turns) == "#0 Marco [00:12:04]: Hola.\n#1 Ana [01:01:11]: Dale."

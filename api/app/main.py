@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -12,13 +13,14 @@ from starlette.concurrency import run_in_threadpool
 
 from app.answering import Answerer, ClaudeAnswerer
 from app.ask import AnswerUnavailable, answer_classic
-from app.chunking import build_chunks
+from app.chunking import build_chunks, render_numbered_turns
 from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
 from app.enrichment import ClaudeEnricher, Enricher
+from app.extraction import ClaudeExtractor, Extractor, validate_extraction
 from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary
-from app.parsing import TranscriptParseError, parse_transcript
-from app.repository import get_meeting, insert_meeting, list_meetings
+from app.parsing import TranscriptParseError, date_from_filename, parse_metadata, parse_transcript
+from app.repository import get_meeting, insert_extraction, insert_meeting, list_meetings
 from app.settings import Settings
 
 
@@ -33,12 +35,14 @@ async def lifespan(app: FastAPI):
     app.state.pool = pool
     app.state.enricher = None
     app.state.answerer = None
+    app.state.extractor = None
     if settings.anthropic_api_key:
         claude = AsyncAnthropic(api_key=settings.anthropic_api_key, base_url=settings.claude_base_url)
         app.state.enricher = ClaudeEnricher(claude, model=settings.context_header_model)
         app.state.answerer = ClaudeAnswerer(
             claude, model=settings.answer_model, effort=settings.answer_effort
         )
+        app.state.extractor = ClaudeExtractor(claude, model=settings.extraction_model)
     yield
     await pool.close()
 
@@ -59,6 +63,16 @@ def get_enricher(request: Request) -> Enricher:
             detail="ANTHROPIC_API_KEY is not set; ingest needs it to write context headers.",
         )
     return enricher
+
+
+def get_extractor(request: Request) -> Extractor:
+    extractor = request.app.state.extractor
+    if extractor is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY is not set; ingest needs it to extract decisions.",
+        )
+    return extractor
 
 
 def get_answerer(request: Request) -> Answerer:
@@ -86,15 +100,17 @@ Conn = Annotated[AsyncConnection, Depends(get_conn)]
 EnricherDep = Annotated[Enricher, Depends(get_enricher)]
 EmbedderDep = Annotated[Embedder, Depends(get_embedder)]
 AnswererDep = Annotated[Answerer, Depends(get_answerer)]
+ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 
 
 @app.post("/meetings", response_model=MeetingCreated)
 async def create_meeting(
-    file: UploadFile, conn: Conn, enricher: EnricherDep, embedder: EmbedderDep
+    file: UploadFile, conn: Conn, enricher: EnricherDep, embedder: EmbedderDep, extractor: ExtractorDep
 ) -> MeetingCreated:
     """Ingest a transcript: parse it into turns, cut chunks, write a context
-    header for each chunk, embed header plus chunk, store everything.
-    Extraction of decisions and action items joins this pipeline next."""
+    header per chunk and extract decisions and action items (the two model
+    passes run concurrently), embed header plus chunk, check the extracted
+    rows in code, store everything atomically."""
     try:
         raw = (await file.read()).decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -103,8 +119,14 @@ async def create_meeting(
         turns = parse_transcript(raw)
     except TranscriptParseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    filename = file.filename or "meeting"
+    title = Path(filename).stem
+    meeting_date = parse_metadata(raw).date or date_from_filename(filename)
     chunks = build_chunks(turns)
-    headers = await enricher.context_headers(raw, chunks)
+    headers, extraction = await asyncio.gather(
+        enricher.context_headers(raw, chunks),
+        extractor.extract(render_numbered_turns(turns), meeting_date),
+    )
     vectors = await run_in_threadpool(
         embedder.embed_documents,
         [f"{header}\n\n{chunk.text}" for header, chunk in zip(headers, chunks)],
@@ -113,13 +135,16 @@ async def create_meeting(
         chunk.model_copy(update={"context_header": header, "embedding": vector})
         for chunk, header, vector in zip(chunks, headers, vectors)
     ]
-    filename = file.filename or "meeting"
-    title = Path(filename).stem
-    meeting_id = await insert_meeting(
-        conn, title=title, source_filename=filename, turns=turns, chunks=enriched
-    )
+    decisions, action_items, discarded = validate_extraction(extraction, turns, meeting_date)
+    async with conn.transaction():
+        meeting_id = await insert_meeting(
+            conn, title=title, source_filename=filename, turns=turns, chunks=enriched,
+            meeting_date=meeting_date,
+        )
+        await insert_extraction(conn, meeting_id, decisions, action_items)
     return MeetingCreated(
-        id=meeting_id, title=title, turn_count=len(turns), chunk_count=len(chunks)
+        id=meeting_id, title=title, turn_count=len(turns), chunk_count=len(chunks),
+        decisions=len(decisions), action_items=len(action_items), discarded=discarded,
     )
 
 
@@ -149,6 +174,7 @@ async def ask(body: AskRequest, conn: Conn, answerer: AnswererDep, embedder: Emb
             answerer=answerer,
             limit=body.limit,
             meeting_id=body.meeting_id,
+            use_index=body.use_index,
         )
     except AnswerUnavailable as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

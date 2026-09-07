@@ -2,12 +2,17 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Chunk, Trace, Turn
+from datetime import date
+
+from app.models import ActionItem, Chunk, Decision, Trace, Turn
 from app.repository import (
     get_meeting,
     get_turns,
+    get_turns_for_meetings,
+    insert_extraction,
     insert_meeting,
     insert_trace,
+    list_index,
     list_meetings,
     search_chunks,
 )
@@ -152,3 +157,61 @@ async def test_insert_trace_stores_the_answer_and_returns_its_id(migrated_conn):
         "SELECT question, answer, cost_usd::float, latency_ms FROM traces WHERE id = %s", (trace_id,)
     )
     assert await cur.fetchone() == ("Who leads pricing?", "Ana leads it. [[M1#7]]", 0.000175, 1234)
+
+
+async def test_meeting_date_is_stored_and_listed(migrated_conn):
+    meeting_id = await insert_meeting(
+        migrated_conn, title="Sync", source_filename="s.txt", turns=TURNS, chunks=[],
+        meeting_date=date(2026, 9, 8),
+    )
+
+    assert (await get_meeting(migrated_conn, meeting_id)).meeting_date == date(2026, 9, 8)
+    assert (await list_meetings(migrated_conn))[0].meeting_date == date(2026, 9, 8)
+
+
+async def test_extracted_rows_are_stored_and_come_back_with_the_meeting(migrated_conn):
+    meeting_id = await insert_meeting(
+        migrated_conn, title="Sync", source_filename="s.txt", turns=TURNS, chunks=[]
+    )
+    decisions = [Decision(statement="Pricing ships in Q4.", decided_by="Marco", turn=1, confidence=0.9)]
+    actions = [
+        ActionItem(task="Look at checkout.", owner=None, due_text=None, due_date=None, status="open", turn=1, confidence=0.7),
+        ActionItem(task="Send the mockups.", owner="Ana", due_text="today", due_date=date(2026, 9, 1), status="done", turn=0, confidence=0.8),
+    ]
+
+    await insert_extraction(migrated_conn, meeting_id, decisions, actions)
+
+    meeting = await get_meeting(migrated_conn, meeting_id)
+    assert meeting.decisions == decisions
+    assert [a.turn for a in meeting.action_items] == [0, 1]
+    assert meeting.action_items[0].owner == "Ana"
+
+
+async def test_index_lists_every_extracted_row_across_meetings_by_date_then_turn(migrated_conn):
+    later = await insert_meeting(migrated_conn, title="Later", source_filename="l.txt", turns=TURNS, chunks=[], meeting_date=date(2026, 9, 8))
+    earlier = await insert_meeting(migrated_conn, title="Earlier", source_filename="e.txt", turns=TURNS, chunks=[], meeting_date=date(2026, 9, 1))
+    await insert_extraction(migrated_conn, later, [Decision(statement="Later decision", decided_by="Marco", turn=0, confidence=1)], [])
+    await insert_extraction(
+        migrated_conn, earlier, [Decision(statement="Early decision", decided_by="Ana", turn=1, confidence=1)],
+        [ActionItem(task="Early task", owner="Ana", due_text="Friday", due_date=None, status="open", turn=0, confidence=1)],
+    )
+
+    rows = await list_index(migrated_conn)
+
+    assert [(r.meeting_title, r.kind, r.turn, r.text) for r in rows] == [
+        ("Earlier", "action", 0, "Early task"),
+        ("Earlier", "decision", 1, "Early decision"),
+        ("Later", "decision", 0, "Later decision"),
+    ]
+    assert rows[0].who == "Ana" and rows[0].due_text == "Friday"
+
+
+async def test_turns_for_meetings_come_back_keyed_by_meeting_and_index(migrated_conn):
+    a = await insert_meeting(migrated_conn, title="A", source_filename="a.txt", turns=TURNS, chunks=[])
+    b = await insert_meeting(migrated_conn, title="B", source_filename="b.txt", turns=TURNS[:1], chunks=[])
+
+    turns = await get_turns_for_meetings(migrated_conn, [a, b])
+
+    assert set(turns) == {a, b}
+    assert turns[a][1].speaker == "Ana"
+    assert list(turns[b]) == [0]

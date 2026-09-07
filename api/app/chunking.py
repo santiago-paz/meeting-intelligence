@@ -61,3 +61,12 @@ def format_timestamp(seconds: int) -> str:
     hours, rest = divmod(seconds, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def render_numbered_turn(turn: Turn) -> str:
+    """One line with the turn index the model cites: #5 Marco [00:00:46]: text."""
+    return f"#{turn.idx} {turn.speaker} [{format_timestamp(turn.start_seconds)}]: {turn.text}"
+
+
+def render_numbered_turns(turns: list[Turn]) -> str:
+    return "\n".join(render_numbered_turn(turn) for turn in turns)

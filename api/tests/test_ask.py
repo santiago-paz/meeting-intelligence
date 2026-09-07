@@ -15,3 +15,9 @@ def test_assign_refs_gives_one_ref_per_meeting_in_order_of_first_appearance():
     a, b = uuid4(), uuid4()
 
     assert assign_refs([_hit(a), _hit(b), _hit(a, idx=1)]) == {a: "M1", b: "M2"}
+
+
+def test_assign_refs_also_covers_meetings_that_only_appear_in_the_index():
+    a, b, c = uuid4(), uuid4(), uuid4()
+
+    assert assign_refs([_hit(a)], [c, a, b]) == {a: "M1", c: "M2", b: "M3"}

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     claude_base_url: str = "https://api.anthropic.com"
     context_header_model: str = "claude-haiku-4-5"
     answer_model: str = "claude-opus-5"
+    extraction_model: str = "claude-opus-5"
     # Thinking depth for answers: low, medium, high, xhigh, max. Traces record latency.
     answer_effort: str = "high"
     embedding_model: str = "BAAI/bge-small-en-v1.5"

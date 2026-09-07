@@ -1,12 +1,23 @@
 """Persistence for meetings, turns and chunks. Plain SQL over psycopg."""
 
+from datetime import date
 from uuid import UUID
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from app.models import Chunk, ChunkHit, MeetingDetail, MeetingSummary, Trace, Turn
+from app.models import (
+    ActionItem,
+    Chunk,
+    ChunkHit,
+    Decision,
+    IndexRow,
+    MeetingDetail,
+    MeetingSummary,
+    Trace,
+    Turn,
+)
 
 
 async def insert_meeting(
@@ -16,12 +27,14 @@ async def insert_meeting(
     source_filename: str,
     turns: list[Turn],
     chunks: list[Chunk],
+    meeting_date: date | None = None,
 ) -> UUID:
     """Store a meeting with its turns and chunks in one transaction; return its id."""
     async with conn.transaction():
         cur = await conn.execute(
-            "INSERT INTO meetings (title, source_filename) VALUES (%s, %s) RETURNING id",
-            (title, source_filename),
+            "INSERT INTO meetings (title, source_filename, meeting_date) VALUES (%s, %s, %s)"
+            " RETURNING id",
+            (title, source_filename, meeting_date),
         )
         meeting_id: UUID = (await cur.fetchone())[0]
         async with conn.cursor() as batch:
@@ -48,7 +61,7 @@ async def insert_meeting(
 async def get_meeting(conn: AsyncConnection, meeting_id: UUID) -> MeetingDetail | None:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "SELECT id, title, created_at FROM meetings WHERE id = %s", (meeting_id,)
+            "SELECT id, title, created_at, meeting_date FROM meetings WHERE id = %s", (meeting_id,)
         )
         row = await cur.fetchone()
         if row is None:
@@ -59,13 +72,25 @@ async def get_meeting(conn: AsyncConnection, meeting_id: UUID) -> MeetingDetail 
             (meeting_id,),
         )
         turns = [Turn(**r) for r in await cur.fetchall()]
-    return MeetingDetail(**row, turns=turns)
+        await cur.execute(
+            "SELECT statement, decided_by, turn_idx AS turn, confidence FROM decisions"
+            " WHERE meeting_id = %s ORDER BY turn_idx, id",
+            (meeting_id,),
+        )
+        decisions = [Decision(**r) for r in await cur.fetchall()]
+        await cur.execute(
+            "SELECT task, owner, due_text, due_date, status, turn_idx AS turn, confidence"
+            " FROM action_items WHERE meeting_id = %s ORDER BY turn_idx, id",
+            (meeting_id,),
+        )
+        action_items = [ActionItem(**r) for r in await cur.fetchall()]
+    return MeetingDetail(**row, turns=turns, decisions=decisions, action_items=action_items)
 
 
 async def list_meetings(conn: AsyncConnection) -> list[MeetingSummary]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "SELECT m.id, m.title, m.created_at, count(t.idx) AS turn_count"
+            "SELECT m.id, m.title, m.created_at, m.meeting_date, count(t.idx) AS turn_count"
             " FROM meetings m LEFT JOIN turns t ON t.meeting_id = m.id"
             " GROUP BY m.id ORDER BY m.created_at DESC, m.id"
         )
@@ -122,15 +147,67 @@ async def _insert_trace(conn: AsyncConnection, trace: Trace) -> UUID:
     cur = await conn.execute(
         "INSERT INTO traces (mode, question, model, answer, refused, citations,"
         " dropped_citations, retrieved, input_tokens, output_tokens, cache_read_tokens,"
-        " cache_write_tokens, cost_usd, latency_ms)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        " cache_write_tokens, cost_usd, latency_ms, index_rows)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             trace.mode, trace.question, trace.model, trace.answer, trace.refused,
             Jsonb([c.model_dump(mode="json") for c in trace.citations]),
             trace.dropped_citations,
             Jsonb([r.model_dump(mode="json") for r in trace.retrieved]),
             trace.input_tokens, trace.output_tokens, trace.cache_read_tokens,
-            trace.cache_write_tokens, trace.cost_usd, trace.latency_ms,
+            trace.cache_write_tokens, trace.cost_usd, trace.latency_ms, trace.index_rows,
         ),
     )
     return (await cur.fetchone())[0]
+
+
+async def insert_extraction(
+    conn: AsyncConnection, meeting_id: UUID, decisions: list[Decision], action_items: list[ActionItem]
+) -> None:
+    async with conn.transaction(), conn.cursor() as batch:
+        await batch.executemany(
+            "INSERT INTO decisions (meeting_id, statement, decided_by, turn_idx, confidence)"
+            " VALUES (%s, %s, %s, %s, %s)",
+            [(meeting_id, d.statement, d.decided_by, d.turn, d.confidence) for d in decisions],
+        )
+        await batch.executemany(
+            "INSERT INTO action_items (meeting_id, task, owner, due_text, due_date, status,"
+            " turn_idx, confidence) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            [
+                (meeting_id, a.task, a.owner, a.due_text, a.due_date, a.status, a.turn, a.confidence)
+                for a in action_items
+            ],
+        )
+
+
+async def list_index(conn: AsyncConnection) -> list[IndexRow]:
+    """Every extracted row across meetings, oldest meeting first, in turn order."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT 'decision' AS kind, m.id AS meeting_id, m.title AS meeting_title,"
+            " m.meeting_date, d.turn_idx AS turn, d.statement AS text, d.decided_by AS who,"
+            " NULL AS due_text, NULL::date AS due_date, NULL AS status"
+            " FROM decisions d JOIN meetings m ON m.id = d.meeting_id"
+            " UNION ALL"
+            " SELECT 'action', m.id, m.title, m.meeting_date, a.turn_idx, a.task, a.owner,"
+            " a.due_text, a.due_date, a.status"
+            " FROM action_items a JOIN meetings m ON m.id = a.meeting_id"
+            " ORDER BY meeting_date NULLS LAST, meeting_title, turn, kind"
+        )
+        return [IndexRow(**row) for row in await cur.fetchall()]
+
+
+async def get_turns_for_meetings(
+    conn: AsyncConnection, meeting_ids: list[UUID]
+) -> dict[UUID, dict[int, Turn]]:
+    result: dict[UUID, dict[int, Turn]] = {}
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT meeting_id, idx, speaker, start_seconds, text FROM turns"
+            " WHERE meeting_id = ANY(%s) ORDER BY meeting_id, idx",
+            (meeting_ids,),
+        )
+        for row in await cur.fetchall():
+            meeting_id = row.pop("meeting_id")
+            result.setdefault(meeting_id, {})[row["idx"]] = Turn(**row)
+    return result

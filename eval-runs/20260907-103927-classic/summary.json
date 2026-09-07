@@ -1,0 +1,26 @@
+{
+  "mode": "classic",
+  "use_index": false,
+  "judge_model": "claude-sonnet-5",
+  "api_url": "http://localhost:8000",
+  "wall_seconds": 75.5,
+  "questions": 23,
+  "errors": 0,
+  "completeness": 0.9396,
+  "faithful_rate": 0.8947,
+  "forbidden_rate": 0.0,
+  "retrieved_coverage": 0.9313,
+  "cited_coverage": 0.9313,
+  "refusal": {
+    "tp": 3,
+    "fp": 1,
+    "fn": 0,
+    "tn": 19,
+    "precision": 0.75,
+    "recall": 1.0
+  },
+  "dropped_citations": 0,
+  "mean_latency_ms": 7455,
+  "total_cost_usd": 1.0553,
+  "judge_cost_usd": 0.2169
+}

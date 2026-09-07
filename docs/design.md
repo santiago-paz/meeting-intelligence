@@ -124,11 +124,22 @@ from wording, and an answer that cites real turns is never a refusal. Plain text
 markers also streams naturally, which matters for agentic mode.
 
 In classic mode the system decides. Embed the question, take the top 8 chunks,
-append every extracted row (about 40 rows at this corpus size, roughly 1.5k
-tokens), make one model call, check the citations, answer. One call,
-predictable, about three seconds. Its weakness is that the evidence is chosen
+make one model call, check the citations, answer. One call, predictable,
+about seven seconds with Opus. Its weakness is that the evidence is chosen
 before the model knows what it needs. If the answer lives in two meetings and
 the top 8 came from one, there is no way to ask for more.
+
+The plan was to also append every extracted row as an index. Measured on
+identical retrieval (two runs each way), that fixed the one aggregation
+question it was built for (Diego's commitments, 0.78 to 1.00) and left
+overall completeness unchanged, but cut faithfulness from about 90% to about
+65% at 40% more cost. The cause is structural: an extracted row summarises
+several turns but anchors to one, so the model cites the anchor and says more
+than that turn contains. Prompt rules did not fix it. Classic mode therefore
+runs without the index by default (`use_index` on the request turns it on);
+the extraction stays for the meeting page and for agentic mode, where the
+model reads a row's neighbourhood before citing. The proper fix, a turn range
+per row, is listed under next steps.
 
 In agentic mode the model decides. The system prompt carries an index (each
 meeting with title, date, speakers and a one-paragraph summary, plus every
@@ -221,6 +232,21 @@ steps.
   about one extra hour and buy a measured comparison.
 - 2026-09-07. Plain SQL through psycopg with numbered migration files, no ORM.
   Storage tests hit the real database from Compose.
+- 2026-09-07. Extraction runs concurrently with the context-header calls at
+  ingest, since neither needs the other. Extracted rows carry a composite
+  foreign key onto the turn they cite, so the database refuses a row that
+  points at a turn that does not exist; the code check on top of it
+  normalises names, dates and status and counts what it drops. At question
+  time the index turns are citable like retrieved turns, through the same
+  validator, so a citation into the index is checked the same way.
+- 2026-09-07. Two findings from the index experiment. First, on identical
+  retrieval the index fixed one aggregation question and cut faithfulness
+  by a quarter at 40% more cost, so classic mode runs without it by default.
+  Second, re-ingesting the same transcripts regenerates the context headers,
+  which moved one chunk out of the top eight and turned a correct answer
+  into a refusal: at 500-token chunks a single line's reachability hinges on
+  one generated sentence. Ingest variance is part of the noise floor, and
+  smaller chunks are the first thing to try next, measured the same way.
 - 2026-09-07. After the first eval run, one golden label changed: the CFO's
   name is unknowable, but a cited "never named, mentioned here and here" beats
   a bare refusal, so that question became a distractor and a truly

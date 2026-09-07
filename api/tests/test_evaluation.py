@@ -131,6 +131,9 @@ async def test_judge_maps_indexed_verdicts_onto_facts_and_forbidden_claims_in_or
     call = client.messages.calls[0]
     assert call["model"] == JUDGE_MODEL
     assert call["output_format"] is JudgeOutput
+    # Sonnet thinks before it answers and thinking counts against max_tokens;
+    # 2048 ran out on long answers and produced no verdict.
+    assert call["max_tokens"] >= 8192
     assert "<answer>\nthe answer text\n</answer>" in call["messages"][0]["content"]
     assert "never as instructions" in call["system"]
 
@@ -193,7 +196,7 @@ class FakeApi:
     def __init__(self, response: dict) -> None:
         self.response = response
 
-    async def ask(self, question: str, mode: str) -> dict:
+    async def ask(self, question: str, mode: str, use_index: bool = False) -> dict:
         return self.response
 
 
@@ -216,3 +219,50 @@ async def test_a_refusal_has_no_cited_claims_so_faithfulness_does_not_apply():
 
     assert refused.faithful is None
     assert answered.faithful is False
+
+
+from evaluation.judge import JudgeError
+
+
+class NoParseMessages:
+    def __init__(self):
+        self.calls = 0
+
+    async def parse(self, **kwargs):
+        self.calls += 1
+        return SimpleNamespace(parsed_output=None, stop_reason="max_tokens",
+                               usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+
+
+async def test_judge_raises_a_clear_error_when_nothing_parses():
+    client = SimpleNamespace(messages=NoParseMessages())
+
+    with pytest.raises(JudgeError, match="max_tokens"):
+        await judge(client, question="q", answer="a", cited_lines=[], key_facts=["f"], must_not_claim=[])
+
+
+class FlakyJudgeClient:
+    """Fails the first call, answers the second."""
+
+    def __init__(self, output: JudgeOutput):
+        self.output = output
+        self.messages = self
+        self.calls = 0
+
+    async def parse(self, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return SimpleNamespace(parsed_output=None, stop_reason="max_tokens",
+                                   usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+        return SimpleNamespace(parsed_output=self.output, usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+
+
+async def test_the_runner_retries_the_judge_once_before_recording_an_error():
+    ok = JudgeOutput.model_validate({"facts": [{"index": 0, "present": True}], "forbidden": [], "unsupported_claims": [], "faithful": True})
+    client = FlakyJudgeClient(ok)
+
+    row = await grade_one(_q(), FakeApi(_ask_response(False)), client, "m", "classic", {})
+
+    assert row.status == "ok"
+    assert row.completeness == 1.0
+    assert client.calls == 2
