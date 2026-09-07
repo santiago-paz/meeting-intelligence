@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AskPanel } from "@/components/ask-panel";
@@ -138,5 +138,85 @@ describe("AskPanel with a linked mode", () => {
     render(<AskPanel initialMode="agentic" />);
 
     expect(screen.getByLabelText("Agentic")).toBeChecked();
+  });
+});
+
+describe("AskPanel folds", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    window.sessionStorage.clear();
+    resetExchangeStore();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    fetchMock.mockReset();
+  });
+
+  /** Earlier answers, newest first, as a trip to a transcript and back leaves them. */
+  function seed(...questions: string[]) {
+    window.sessionStorage.setItem(
+      "ask.exchanges",
+      JSON.stringify(questions.map((question, i) => ({ id: `x${i}`, question, mode: "agentic", response: { ...answer, question } }))),
+    );
+  }
+
+  const startsWith = (prefix: string) => (name: string) => name.startsWith(prefix);
+
+  function toggle(question: string) {
+    return screen.getByRole("button", { name: startsWith(question) });
+  }
+
+  function answerOf(question: string) {
+    return within(screen.getByRole("article", { name: question })).getByText(/Marco opened it\./);
+  }
+
+  it("opens the newest answer and folds the earlier ones", () => {
+    seed("Who agreed?", "Who spoke?");
+
+    render(<AskPanel />);
+
+    expect(toggle("Who agreed?")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Who spoke?")).toHaveAttribute("aria-expanded", "false");
+    expect(answerOf("Who agreed?")).toBeVisible();
+    expect(answerOf("Who spoke?")).not.toBeVisible();
+  });
+
+  it("unfolds an earlier answer when its question is pressed", () => {
+    seed("Who agreed?", "Who spoke?");
+    render(<AskPanel />);
+
+    fireEvent.click(toggle("Who spoke?"));
+
+    expect(toggle("Who spoke?")).toHaveAttribute("aria-expanded", "true");
+    expect(answerOf("Who spoke?")).toBeVisible();
+  });
+
+  it("folds the answer that was newest when a new one arrives", async () => {
+    seed("Who spoke?");
+    const { response, release } = streamed([{ event: "answer", data: { ...answer, question: "What was decided?" } }]);
+    fetchMock.mockResolvedValue(response);
+    render(<AskPanel />);
+
+    ask("What was decided?");
+    release();
+
+    expect(await screen.findByRole("button", { name: startsWith("What was decided?") })).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Who spoke?")).toHaveAttribute("aria-expanded", "false");
+    expect(answerOf("Who spoke?")).not.toBeVisible();
+  });
+
+  it("keeps an answer the reader unfolded when a new one arrives", async () => {
+    seed("Who agreed?", "Who spoke?");
+    const { response, release } = streamed([{ event: "answer", data: { ...answer, question: "What was decided?" } }]);
+    fetchMock.mockResolvedValue(response);
+    render(<AskPanel />);
+
+    fireEvent.click(toggle("Who spoke?"));
+    ask("What was decided?");
+    release();
+
+    await screen.findByRole("button", { name: startsWith("What was decided?") });
+    expect(toggle("Who spoke?")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Who agreed?")).toHaveAttribute("aria-expanded", "false");
   });
 });

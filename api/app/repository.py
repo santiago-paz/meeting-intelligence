@@ -90,6 +90,12 @@ async def get_meeting(conn: AsyncConnection, meeting_id: UUID) -> MeetingDetail 
     return MeetingDetail(**row, turns=turns, decisions=decisions, action_items=action_items)
 
 
+async def existing_titles(conn: AsyncConnection, titles: list[str]) -> set[str]:
+    """Which of these meeting titles are already stored."""
+    cur = await conn.execute("SELECT DISTINCT title FROM meetings WHERE title = ANY(%s)", (titles,))
+    return {row[0] for row in await cur.fetchall()}
+
+
 async def list_meetings(conn: AsyncConnection) -> list[MeetingSummary]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(

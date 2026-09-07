@@ -48,3 +48,14 @@ describe("TraceTable", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 });
+
+describe("TraceTable with recorded answers", () => {
+  it("marks the rows that came from test mode", () => {
+    const recorded: TraceSummary = { ...rows[0], trace_id: "ccc", model: "test-mode", cost_usd: 0 };
+    render(<TraceTable rows={[recorded, rows[1]]} locale="en-GB" timeZone="UTC" />);
+
+    const [first, second] = screen.getAllByRole("row").slice(1);
+    expect(first).toHaveTextContent("test mode");
+    expect(second).not.toHaveTextContent("test mode");
+  });
+});

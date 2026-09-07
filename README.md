@@ -14,7 +14,8 @@ show.
 ## Run it
 
 You need Docker, Python 3.13 with [uv](https://docs.astral.sh/uv/), Node 20 or
-newer, and an Anthropic API key.
+newer, and an Anthropic API key. The key is optional: without one, test mode
+replays a recorded run (see the end of this section).
 
 1. Start Postgres with pgvector:
 
@@ -37,6 +38,9 @@ newer, and an Anthropic API key.
    scripts/seed.sh
    ```
 
+   Without a key, skip this step. The Meetings page has a button that loads
+   the same five transcripts from the recorded run.
+
 4. Start the web app:
 
    ```bash
@@ -45,10 +49,14 @@ newer, and an Anthropic API key.
 
 5. Open http://localhost:3000.
 
-Without the key, the pages still work, but uploads and questions answer 503
-with a message that says what is missing. On the sample corpus a question
-costs between three and eleven cents; the traces page shows the exact figure
-for each one.
+Without the key, uploads and live questions answer 503 with a message that
+says what is missing, and the app offers test mode instead. The Meetings page
+loads the five sample meetings from a recorded run, and the Ask page has a
+Test mode switch, on by default when the API has no key, that replays the
+answers Claude gave to the 23 golden questions. Nothing is spent. With a key,
+the same switch shows the recorded answers for free. On the sample corpus a
+live question costs between three and eleven cents; the traces page shows
+the exact figure for each one.
 
 ## What you get
 
@@ -68,14 +76,29 @@ the timecode. Under the answer, the cited moments are quoted in full, with
 the speaker and a link into the transcript; pressing a chip marks its moment
 with the same highlighter the transcript uses. A fold shows how the answer
 was made: tool calls or retrieved excerpts, tokens, cache hits and cost.
+Answers stack under the box, newest first. The newest is open and the earlier
+ones fold under their question; press a question to open or fold its answer.
+
+**Test mode.** A switch under the question box, with a line that says why it
+is there. On, it lists the sample questions grouped by what each one tests,
+and a press on one asks it. The answer is the one a real run of this app
+gave, replayed: only the model's words are recorded, and retrieval, the tool
+calls, the citation check and the trace run again for real. A recorded
+answer wears a dashed border, says "test mode" next to its mode, and shows
+as such in the traces ledger, so it can never pass for a live one. The
+recording is `fixtures/test-mode.json`, written by `api/record.py` from a
+database that holds a seeded corpus and an eval run of each mode;
+`api/tests/test_recording.py` fails when the transcripts, the chunker or the
+golden set change under it.
 
 **Traces.** Every answered question with its mode, citations, latency and
 cost, and a detail page with the same answer view plus the tool arguments
 and the token breakdown.
 
-**API.** `POST /meetings`, `GET /meetings`, `GET /meetings/{id}`,
-`POST /ask`, `POST /ask/stream`, `GET /traces`, `GET /traces/{id}` and
-`GET /health`. FastAPI serves the interactive docs at `/docs`.
+**API.** `POST /meetings`, `POST /meetings/samples`, `GET /meetings`,
+`GET /meetings/{id}`, `POST /ask`, `POST /ask/stream`, `GET /traces`,
+`GET /traces/{id}`, `GET /test-mode` and `GET /health`. FastAPI serves the
+interactive docs at `/docs`.
 
 The sample corpus is five short meetings of a fictional product team over
 September 2026: a quarterly planning, two weekly syncs, a design review and a
@@ -311,9 +334,9 @@ know whether a change helped than reading diffs.
 ## Layout
 
 ```
-api/            FastAPI service: app/ (ingest, retrieval, answering, agent), evaluation/, tests/
+api/            FastAPI service: app/ (ingest, retrieval, answering, agent), evaluation/, tests/; record.py writes test mode's recording
 web/            Next.js app: meetings, ask and traces pages
-fixtures/       five sample transcripts and the golden question set
+fixtures/       five sample transcripts, the golden question set and the recorded run test mode replays
 eval-runs/      one directory per evaluation run, with an index
 docs/design.md  the design and its decisions log
 scripts/        seed.sh uploads the fixtures

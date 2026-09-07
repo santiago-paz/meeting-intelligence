@@ -48,17 +48,20 @@ events without buffering, and the last event carries the citations and a trace
 id.
 
 The Ask page is that stream made visible. A question box with a mode switch
-sits on top; answers stack under it, newest first. While an answer is on its
-way the page shows what the model is doing, one line per tool call as the
-event arrives (which turns it read, what it searched, how long the call
-took), so the wait reads as work. In the answer, every marker the model wrote
-becomes a small chip where it stood (meeting ref and timecode), and under
-the answer a list of cited moments quotes each turn in full, with the speaker
-and a link into the transcript. Pressing a chip marks its moment with the
-same highlighter stroke the transcript uses for a linked turn, so the two
-pages read as one system. A "How it was answered" fold shows the tool calls
-or the retrieved excerpts, tokens, cache hits and cost. Answers persist for
-the browser session, so a trip into a transcript and back loses nothing.
+sits on top; answers stack under it, newest first. Each answer folds under
+its question: the newest is open, the earlier ones start folded, and a fold
+the reader sets by hand stays as set when the next answer arrives. While an
+answer is on its way the page shows what the model is doing, one line per
+tool call as the event arrives (which turns it read, what it searched, how
+long the call took), so the wait reads as work. In the answer, every marker
+the model wrote becomes a small chip where it stood (meeting ref and
+timecode), and under the answer a list of cited moments quotes each turn in
+full, with the speaker and a link into the transcript. Pressing a chip marks
+its moment with the same highlighter stroke the transcript uses for a linked
+turn, so the two pages read as one system. A "How it was answered" fold shows
+the tool calls or the retrieved excerpts, tokens, cache hits and cost.
+Answers persist for the browser session, so a trip into a transcript and back
+loses nothing.
 
 ## Data model
 
@@ -269,6 +272,40 @@ what a reader verifies later is exactly what the asker saw; under it sit the
 tool calls with their arguments and the token and cost breakdown. Self-built
 rather than a vendor dashboard, because the point is to show the reasoning.
 
+## Test mode
+
+A reviewer without an Anthropic key used to see an empty app: ingest needs
+the model for context headers and extraction, so even the seed failed, and
+every question answered 503. Test mode replays a recorded run instead.
+`api/record.py` reads the database after a seed and an eval of each mode and
+writes `fixtures/test-mode.json`: for each sample meeting, the context header
+of every chunk and the extracted rows; for each golden question and mode, the
+latest stored answer with its citations, tool calls, token counts and refusal
+flag. Refs (M1, M2) are numbered per run, so the recording names meetings by
+title and translates every marker and tool argument on the way in and out.
+
+At run time four small classes in `app/recorded.py` stand in for the
+model-backed services, behind the same protocols the fakes use in tests.
+`POST /meetings/samples` ingests the sample transcripts through the normal
+pipeline with the recorded headers and rows, embedding included, and skips
+titles already stored. `POST /ask` and `POST /ask/stream` accept `test_mode`.
+The recorded agent replays the recorded tool calls through the real executor,
+so the turns the answer cites were read in this run, and reads any recorded
+range a search no longer returns; the recorded answerer runs real retrieval
+and speaks in the refs of the prompt it is given. The citation check, the
+trace and the cost run unchanged; the model reads "test-mode" and the cost is
+zero. A question outside the set is refused before anything runs, and no
+trace is written. Without a key, live requests still answer 503, with a
+message that points at test mode.
+
+In the UI the switch sits under the question box with one paragraph that
+says why it is there, on by default when the API reports no key, and the
+sample questions appear under it grouped by type. A recorded answer wears a
+dashed rule where a live one has a solid one, says "test mode" next to its
+mode, and shows as such in the traces ledger. `tests/test_recording.py`
+checks the recording against the transcripts, the chunker and the golden set,
+so an edit to any of them fails the suite until the recording is made again.
+
 ## Out of scope
 
 Reranking, authentication, multiple users, incremental re-indexing, and the
@@ -352,3 +389,12 @@ steps.
   Bricolage has tabular figures, so columns line up without it, and the mono
   read as a terminal rather than a reading tool. Yellow stays reserved for the
   cited moment and the mark.
+- 2026-09-07. Test mode replays a recorded run rather than faking a model or
+  shipping canned exchanges in the browser. The recorded answers are real
+  Opus answers with real citations, captured for nothing from the eval runs
+  already made, and everything after the model's words runs for real, so a
+  reviewer without a key sees the system and not a mock. The switch is
+  explicit and every recorded answer is marked, because a replayed answer
+  must never pass for a live one. Recorded traces are stored, tagged and at
+  zero cost, because an empty ledger would hide the very thing the mode is
+  meant to show.

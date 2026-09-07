@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AnswerView, type Exchange } from "@/components/answer-view";
 import type { AskResponse } from "@/lib/api";
@@ -70,5 +70,41 @@ describe("AnswerView", () => {
     expect(within(details!).getByText("read_turns")).toBeInTheDocument();
     expect(within(details!).getByText("M1 turns 0-1")).toBeInTheDocument();
     expect(within(details!).getByText(/\$0\.0123/)).toBeInTheDocument();
+  });
+});
+
+describe("AnswerView as a fold", () => {
+  it("puts the question on a button that says whether the answer is open", () => {
+    render(<AnswerView exchange={exchange()} fold={{ open: false, onToggle: () => {} }} />);
+
+    const toggle = screen.getByRole("button", { name: /^Who spoke\?/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText(/Marco opened it\./)).not.toBeVisible();
+    expect(screen.getByText("Cited moments")).not.toBeVisible();
+    expect(screen.getByText("How it was answered")).not.toBeVisible();
+  });
+
+  it("shows the answer when open", () => {
+    render(<AnswerView exchange={exchange()} fold={{ open: true, onToggle: () => {} }} />);
+
+    expect(screen.getByRole("button", { name: /^Who spoke\?/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Marco opened it\./)).toBeVisible();
+  });
+
+  it("asks to toggle when the question is pressed", () => {
+    const onToggle = vi.fn();
+    render(<AnswerView exchange={exchange()} fold={{ open: false, onToggle }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Who spoke\?/ }));
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a plain heading over an answer that is always shown when not asked to fold", () => {
+    render(<AnswerView exchange={exchange()} />);
+
+    expect(screen.queryByRole("button", { name: /^Who spoke\?/ })).toBeNull();
+    expect(screen.getByRole("heading", { level: 2, name: "Who spoke?" })).toBeInTheDocument();
+    expect(screen.getByText(/Marco opened it\./)).toBeVisible();
   });
 });

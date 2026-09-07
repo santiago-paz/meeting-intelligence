@@ -174,6 +174,36 @@ class AskRequest(BaseModel):
     # index fixed one aggregation question and cut faithfulness from ~90% to
     # ~65% at 40% more cost. See docs/design.md, Decisions, 2026-09-07.
     use_index: bool = False
+    # Answer from the recorded run instead of a model: the answer Claude gave
+    # this question when it was recorded, replayed through the real pipeline.
+    # Only the sample questions are recorded; see app/recorded.py.
+    test_mode: bool = False
+
+
+class SampleQuestion(BaseModel):
+    question: str
+    type: str
+
+
+class SampleStatus(BaseModel):
+    """Which sample meetings are stored, by title, and which are not."""
+
+    loaded: list[str]
+    missing: list[str]
+
+
+class TestModeStatus(BaseModel):
+    """What the UI needs to offer test mode: whether answering has a key at all,
+    whether the sample meetings are in, and the questions the recording knows."""
+
+    has_key: bool
+    samples: SampleStatus
+    questions: list[SampleQuestion]
+
+
+class SamplesLoaded(BaseModel):
+    loaded: list[MeetingCreated]
+    skipped: list[str]
 
 
 class Decision(BaseModel):

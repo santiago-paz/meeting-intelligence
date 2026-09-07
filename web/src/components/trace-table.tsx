@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { TraceSummary } from "@/lib/api";
+import { isRecorded, type TraceSummary } from "@/lib/api";
 import { formatDateTime } from "@/lib/time";
 import { formatCost, formatLatency } from "@/lib/traces";
 
@@ -40,7 +40,10 @@ export function TraceTable({ rows, locale, timeZone }: { rows: TraceSummary[]; l
               <td className={`${CELL} whitespace-nowrap text-xs tabular-nums text-ink-muted`}>
                 <time dateTime={row.created_at}>{formatDateTime(row.created_at, locale, timeZone)}</time>
               </td>
-              <td className={`${CELL} text-xs text-ink-muted`}>{row.mode}</td>
+              <td className={`${CELL} text-xs text-ink-muted`}>
+                {row.mode}
+                {isRecorded(row) && <span className="block whitespace-nowrap text-[0.6875rem] text-ink-muted/80">test mode</span>}
+              </td>
               <td className={`${CELL} min-w-0`}>
                 <Link
                   href={`/traces/${row.trace_id}`}

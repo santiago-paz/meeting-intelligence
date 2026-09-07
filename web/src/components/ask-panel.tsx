@@ -4,32 +4,36 @@ import { useState, useSyncExternalStore } from "react";
 
 import { AnswerView } from "@/components/answer-view";
 import { AskForm } from "@/components/ask-form";
-import type { AskMode, AskResponse, ToolCall } from "@/lib/api";
+import type { AskMode, AskResponse, TestModeStatus, ToolCall } from "@/lib/api";
 import { readExchanges, readServerExchanges, subscribeExchanges, writeExchanges } from "@/lib/exchange-store";
 import { readEvents } from "@/lib/sse";
 
-type Working = { question: string; mode: AskMode; toolCalls: ToolCall[] };
+type Working = { question: string; mode: AskMode; testMode: boolean; toolCalls: ToolCall[] };
 
 /**
  * The question box and everything it has answered, newest first. While an
  * answer is on its way the tool calls stream in as a log, so the wait reads
  * as work. Answers live in the exchange store, which persists them for the
- * session.
+ * session. Each answer folds under its question: the newest is open, the
+ * earlier ones start folded, and a fold the reader sets by hand stays put.
  */
-export function AskPanel({ initialMode = "classic" }: { initialMode?: AskMode }) {
+export function AskPanel({ initialMode = "classic", testMode = null }: { initialMode?: AskMode; testMode?: TestModeStatus | null }) {
   const exchanges = useSyncExternalStore(subscribeExchanges, readExchanges, readServerExchanges);
   const [working, setWorking] = useState<Working | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Answers the reader opened or folded by hand, by id. The rest follow the default.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
 
-  async function ask(question: string, mode: AskMode) {
+  async function ask(question: string, mode: AskMode, inTestMode = false) {
     setError(null);
-    setWorking({ question, mode, toolCalls: [] });
+    setWorking({ question, mode, testMode: inTestMode, toolCalls: [] });
     let response: Response;
     try {
       response = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, mode }),
+        // The flag travels only when it is on; the API's default is off.
+        body: JSON.stringify(inTestMode ? { question, mode, test_mode: true } : { question, mode }),
       });
     } catch {
       setError("Couldn’t reach the server. Is it running?");
@@ -69,11 +73,15 @@ export function AskPanel({ initialMode = "classic" }: { initialMode?: AskMode })
 
   return (
     <div className="flex flex-col gap-6">
-      <AskForm busy={working !== null} onAsk={ask} initialMode={initialMode} />
+      <AskForm busy={working !== null} onAsk={ask} initialMode={initialMode} testMode={testMode} />
       {working && (
         <section role="status" aria-live="polite" className="rounded-lg border border-rule bg-sheet px-4 py-3 text-xs text-ink-muted">
           <p className="working font-medium text-ink">
-            {working.mode === "agentic" ? "Reading the table of contents…" : "Reading the closest excerpts…"}
+            {working.testMode
+              ? "Replaying the recorded run…"
+              : working.mode === "agentic"
+                ? "Reading the table of contents…"
+                : "Reading the closest excerpts…"}
           </p>
           {working.toolCalls.length > 0 && (
             <ol className="mt-2 flex flex-col gap-1">
@@ -99,11 +107,17 @@ export function AskPanel({ initialMode = "classic" }: { initialMode?: AskMode })
         </p>
       ) : (
         <ol className="flex flex-col gap-6">
-          {exchanges.map((exchange) => (
-            <li key={exchange.id}>
-              <AnswerView exchange={exchange} />
-            </li>
-          ))}
+          {exchanges.map((exchange, i) => {
+            const open = toggled[exchange.id] ?? i === 0;
+            return (
+              <li key={exchange.id}>
+                <AnswerView
+                  exchange={exchange}
+                  fold={{ open, onToggle: () => setToggled((current) => ({ ...current, [exchange.id]: !open })) }}
+                />
+              </li>
+            );
+          })}
         </ol>
       )}
     </div>

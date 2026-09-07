@@ -45,6 +45,18 @@ export type AskResponse = {
   rounds: number;
 };
 
+export type SampleQuestion = { question: string; type: string };
+export type SampleStatus = { loaded: string[]; missing: string[] };
+/** What GET /test-mode reports: whether answering has a key at all, whether the sample meetings are in, the questions the recording knows. */
+export type TestModeStatus = { has_key: boolean; samples: SampleStatus; questions: SampleQuestion[] };
+
+/** The model name the API writes on an answer replayed from the recording instead of asked of a model. */
+export const TEST_MODE_MODEL = "test-mode";
+
+export function isRecorded(response: { model: string }): boolean {
+  return response.model === TEST_MODE_MODEL;
+}
+
 export function apiUrl(): string {
   return process.env.API_URL ?? "http://localhost:8000";
 }
@@ -59,6 +71,12 @@ export async function getMeeting(id: string): Promise<MeetingDetail | null> {
   const response = await fetch(`${apiUrl()}/meetings/${id}`);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`API responded ${response.status} for meeting ${id}`);
+  return response.json();
+}
+
+export async function getTestModeStatus(): Promise<TestModeStatus> {
+  const response = await fetch(`${apiUrl()}/test-mode`);
+  if (!response.ok) throw new Error(`API responded ${response.status} for test mode`);
   return response.json();
 }
 

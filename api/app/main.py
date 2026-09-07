@@ -22,12 +22,42 @@ from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
 from app.enrichment import ClaudeEnricher, Enricher
 from app.extraction import ClaudeExtractor, Extractor, validate_extraction
-from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary, ToolCall, TraceDetail, TraceSummary
+from app.models import (
+    AskRequest,
+    AskResponse,
+    MeetingCreated,
+    MeetingDetail,
+    MeetingSummary,
+    SampleStatus,
+    SamplesLoaded,
+    TestModeStatus,
+    ToolCall,
+    TraceDetail,
+    TraceSummary,
+)
 from app.parsing import TranscriptParseError, date_from_filename, parse_metadata, parse_transcript
-from app.repository import get_meeting, get_trace, insert_extraction, insert_meeting, list_meetings, list_traces
+from app.recorded import (
+    RecordedAgent,
+    RecordedAnswerer,
+    RecordedEnricher,
+    RecordedExtractor,
+    Recording,
+    StaleRecording,
+    load_recording,
+)
+from app.repository import (
+    existing_titles,
+    get_meeting,
+    get_trace,
+    insert_extraction,
+    insert_meeting,
+    list_meetings,
+    list_traces,
+)
 from app.settings import Settings
 
 log = logging.getLogger(__name__)
+SAMPLES_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "transcripts"
 
 
 @asynccontextmanager
@@ -111,23 +141,17 @@ ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 AgentDep = Annotated[Agent | None, Depends(get_agent)]
 
 
-@app.post("/meetings", response_model=MeetingCreated)
-async def create_meeting(
-    file: UploadFile, conn: Conn, enricher: EnricherDep, embedder: EmbedderDep, extractor: ExtractorDep
+async def ingest_transcript(
+    conn: AsyncConnection, raw: str, filename: str, *, enricher: Enricher, embedder: Embedder, extractor: Extractor
 ) -> MeetingCreated:
-    """Ingest a transcript: parse it into turns, cut chunks, write a context
-    header per chunk and extract decisions and action items (the two model
-    passes run concurrently), embed header plus chunk, check the extracted
-    rows in code, store everything atomically."""
-    try:
-        raw = (await file.read()).decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded text.") from exc
+    """Parse a transcript into turns, cut chunks, write a context header per
+    chunk and extract decisions and action items (the two model passes run
+    concurrently), embed header plus chunk, check the extracted rows in code,
+    store everything atomically."""
     try:
         turns = parse_transcript(raw)
     except TranscriptParseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    filename = file.filename or "meeting"
     title = Path(filename).stem
     meeting_date = parse_metadata(raw).date or date_from_filename(filename)
     chunks = build_chunks(turns)
@@ -156,6 +180,67 @@ async def create_meeting(
     )
 
 
+@app.post("/meetings", response_model=MeetingCreated)
+async def create_meeting(
+    file: UploadFile, conn: Conn, enricher: EnricherDep, embedder: EmbedderDep, extractor: ExtractorDep
+) -> MeetingCreated:
+    """Ingest an uploaded transcript; see ingest_transcript."""
+    try:
+        raw = (await file.read()).decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 encoded text.") from exc
+    return await ingest_transcript(
+        conn, raw, file.filename or "meeting", enricher=enricher, embedder=embedder, extractor=extractor
+    )
+
+
+def _recording() -> Recording:
+    try:
+        return load_recording()
+    except StaleRecording as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+async def _sample_status(conn: AsyncConnection, recording: Recording) -> SampleStatus:
+    titles = sorted(recording.meetings)
+    present = await existing_titles(conn, titles)
+    return SampleStatus(loaded=[t for t in titles if t in present], missing=[t for t in titles if t not in present])
+
+
+@app.post("/meetings/samples", response_model=SamplesLoaded)
+async def load_samples(conn: Conn, embedder: EmbedderDep) -> SamplesLoaded:
+    """Ingest the sample transcripts with the context headers and extracted
+    rows of the recorded run, so the corpus is there without a key and
+    without spending one. Embedding is local and runs for real. A title that
+    is already stored is skipped, so this can be called again safely."""
+    recording = _recording()
+    status = await _sample_status(conn, recording)
+    loaded: list[MeetingCreated] = []
+    for title in status.missing:
+        raw = (SAMPLES_DIR / f"{title}.txt").read_text(encoding="utf-8-sig")
+        meeting = recording.meetings[title]
+        try:
+            loaded.append(await ingest_transcript(
+                conn, raw, f"{title}.txt",
+                enricher=RecordedEnricher(meeting), embedder=embedder, extractor=RecordedExtractor(meeting),
+            ))
+        except StaleRecording as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        # One transaction per sample: each keeps its own timestamp (so the list has an order),
+        # and a failure part-way leaves the ones already in, which a retry then skips.
+        await conn.commit()
+    return SamplesLoaded(loaded=loaded, skipped=status.loaded)
+
+
+@app.get("/test-mode", response_model=TestModeStatus)
+async def read_test_mode(conn: Conn, answerer: AnswererDep) -> TestModeStatus:
+    """What test mode can offer right now. The UI turns it on by default when there is no key."""
+    recording = _recording()
+    return TestModeStatus(
+        has_key=answerer is not None, samples=await _sample_status(conn, recording), questions=recording.questions()
+    )
+
+
 @app.get("/meetings", response_model=list[MeetingSummary])
 async def read_meetings(conn: Conn) -> list[MeetingSummary]:
     return await list_meetings(conn)
@@ -179,23 +264,21 @@ async def ask(
     from them. Agentic mode: the model reads a table of contents and fetches
     what it needs with tools. Both cite inline, and every citation is checked
     against what the model was actually shown."""
-    service = agent if body.mode == "agentic" else answerer
-    if service is None:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set; answering needs it.")
+    service = await _service_for(body, conn, answerer, agent)
     try:
         if body.mode == "agentic":
             return await answer_agentic(
                 conn,
                 question=body.question,
                 embedder=embedder,
-                agent=agent,
+                agent=service,
                 max_rounds=request.app.state.settings.agent_max_rounds,
             )
         return await answer_classic(
             conn,
             question=body.question,
             embedder=embedder,
-            answerer=answerer,
+            answerer=service,
             limit=body.limit,
             meeting_id=body.meeting_id,
             use_index=body.use_index,
@@ -204,13 +287,38 @@ async def ask(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+async def _service_for(body: AskRequest, conn: AsyncConnection, answerer: Answerer | None, agent: Agent | None):
+    """The answerer or agent a question runs on. In test mode it is the recorded
+    run replayed, which knows only the sample questions and needs the sample
+    meetings in place; otherwise the configured one, if a key gave us one."""
+    if body.test_mode:
+        recording = _recording()
+        recorded = recording.find(body.question, body.mode)
+        if recorded is None:
+            raise HTTPException(
+                status_code=422, detail="Test mode answers only the sample questions. Pick one of them."
+            )
+        if (await _sample_status(conn, recording)).missing:
+            raise HTTPException(
+                status_code=409, detail="The sample meetings are not loaded yet. Load them on the Meetings page first."
+            )
+        return RecordedAgent(recorded) if body.mode == "agentic" else RecordedAnswerer(recorded)
+    service = agent if body.mode == "agentic" else answerer
+    if service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY is not set; answering needs it. Test mode answers the sample questions without a key.",
+        )
+    return service
+
+
 def _event(name: str, data: dict) -> str:
     return f"event: {name}\ndata: {json.dumps(data)}\n\n"
 
 
 @app.post("/ask/stream")
 async def ask_stream(
-    body: AskRequest, embedder: EmbedderDep, answerer: AnswererDep, agent: AgentDep, request: Request
+    body: AskRequest, conn: Conn, embedder: EmbedderDep, answerer: AnswererDep, agent: AgentDep, request: Request
 ) -> StreamingResponse:
     """The same answer as /ask, as server-sent events.
 
@@ -219,9 +327,7 @@ async def ask_stream(
     event carrying the /ask payload, or an `error` event with a detail. The
     stream takes its own connection from the pool: a request-scoped one may
     be returned before the last event is written."""
-    service = agent if body.mode == "agentic" else answerer
-    if service is None:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set; answering needs it.")
+    service = await _service_for(body, conn, answerer, agent)
     queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
 
     async def on_tool_call(call: ToolCall) -> None:
@@ -235,7 +341,7 @@ async def ask_stream(
                         conn,
                         question=body.question,
                         embedder=embedder,
-                        agent=agent,
+                        agent=service,
                         max_rounds=request.app.state.settings.agent_max_rounds,
                         on_tool_call=on_tool_call,
                     )
@@ -244,7 +350,7 @@ async def ask_stream(
                         conn,
                         question=body.question,
                         embedder=embedder,
-                        answerer=answerer,
+                        answerer=service,
                         limit=body.limit,
                         meeting_id=body.meeting_id,
                         use_index=body.use_index,
