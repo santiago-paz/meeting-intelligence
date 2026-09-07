@@ -21,3 +21,8 @@ export function pickLocale(acceptLanguage: string | null, fallback = "en-GB"): s
 export function formatDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(iso));
 }
+
+/** Medium date plus short time in the reader's locale, e.g. "7 Sept 2026, 13:05". */
+export function formatDateTime(iso: string, locale: string, timeZone?: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(iso));
+}

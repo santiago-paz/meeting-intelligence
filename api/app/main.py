@@ -8,7 +8,7 @@ from typing import Annotated, AsyncIterator
 from uuid import UUID
 
 from anthropic import AsyncAnthropic
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg import AsyncConnection
 from psycopg_pool import AsyncConnectionPool
@@ -22,9 +22,9 @@ from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
 from app.enrichment import ClaudeEnricher, Enricher
 from app.extraction import ClaudeExtractor, Extractor, validate_extraction
-from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary, ToolCall
+from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary, ToolCall, TraceDetail, TraceSummary
 from app.parsing import TranscriptParseError, date_from_filename, parse_metadata, parse_transcript
-from app.repository import get_meeting, insert_extraction, insert_meeting, list_meetings
+from app.repository import get_meeting, get_trace, insert_extraction, insert_meeting, list_meetings, list_traces
 from app.settings import Settings
 
 log = logging.getLogger(__name__)
@@ -271,6 +271,20 @@ async def ask_stream(
         events(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.get("/traces", response_model=list[TraceSummary])
+async def read_traces(conn: Conn, limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[TraceSummary]:
+    """Every answered question, newest first, without the answer text."""
+    return await list_traces(conn, limit=limit)
+
+
+@app.get("/traces/{trace_id}", response_model=TraceDetail)
+async def read_trace(trace_id: UUID, conn: Conn) -> TraceDetail:
+    trace = await get_trace(conn, trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found.")
+    return trace
 
 
 @app.get("/health")

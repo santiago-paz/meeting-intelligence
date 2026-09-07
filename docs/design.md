@@ -258,10 +258,16 @@ touched.
 ## Observability
 
 Every question writes a row to `traces`: mode, what was retrieved or which tools
-ran with what arguments, tokens in and out, latency per stage, cost, the answer
-and its citations. A `/traces` page in the web app reads them. Self-built, about
-150 lines, because the point is to show the reasoning rather than to install a
-vendor.
+ran with what arguments, tokens in and out (cache reads and writes apart),
+latency, cost, the answer and its citations. The API serves them as a list
+(`GET /traces`, newest first, counts in place of the JSON columns) and one at
+a time (`GET /traces/{id}`). The `/traces` page is a ledger: a few figures on
+top (questions, refusals, spend, median latency per mode) and one row per
+question with its mode, citation count, latency and cost. A trace opens in
+the same answer view the Ask page uses, chips and cited moments included, so
+what a reader verifies later is exactly what the asker saw; under it sit the
+tool calls with their arguments and the token and cost breakdown. Self-built
+rather than a vendor dashboard, because the point is to show the reasoning.
 
 ## Out of scope
 

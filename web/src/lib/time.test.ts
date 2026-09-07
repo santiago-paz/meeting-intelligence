@@ -30,3 +30,11 @@ describe("formatDate", () => {
     expect(formatDate("2026-09-07T12:00:00Z", "en-GB")).toMatch(/7 Sept 2026/);
   });
 });
+
+describe("formatDateTime", () => {
+  it("shows the date and the time in the reader's locale", async () => {
+    const { formatDateTime } = await import("@/lib/time");
+
+    expect(formatDateTime("2026-09-07T13:05:00Z", "en-GB", "UTC")).toBe("7 Sept 2026, 13:05");
+  });
+});

@@ -382,3 +382,35 @@ def test_ask_stream_without_an_anthropic_key_is_a_clear_503(client_without_llm):
     response = client_without_llm.post("/ask/stream", json={"question": "Anything at all?", "mode": "agentic"})
 
     assert response.status_code == 503
+
+
+def test_traces_list_every_answered_question_newest_first(client):
+    _upload(client)
+    _ask(client, "Who started the meeting?", "Marco opened it. [[M1#0]]")
+    _agent("Ana agreed. [[M1#1]]", actions=[("read_turns", {"meeting_ref": "M1", "start": 0, "end": 1})])
+    client.post("/ask", json={"question": "Did Ana agree?", "mode": "agentic"})
+
+    rows = client.get("/traces").json()
+
+    assert [(r["question"], r["mode"], r["citation_count"], r["tool_call_count"]) for r in rows] == [
+        ("Did Ana agree?", "agentic", 1, 1),
+        ("Who started the meeting?", "classic", 1, 0),
+    ]
+    assert rows[0]["trace_id"] and rows[0]["created_at"]
+    assert [r["question"] for r in client.get("/traces", params={"limit": 1}).json()] == ["Did Ana agree?"]
+
+
+def test_a_trace_can_be_read_back_whole(client):
+    _upload(client)
+    trace_id = _ask(client, "Who started?", "Marco opened it. [[M1#0]]").json()["trace_id"]
+
+    body = client.get(f"/traces/{trace_id}").json()
+
+    assert body["trace_id"] == trace_id and body["created_at"]
+    assert body["question"] == "Who started?" and body["citations"][0]["speaker"] == "Marco"
+
+
+def test_an_unknown_trace_is_a_404(client):
+    from uuid import uuid4
+
+    assert client.get(f"/traces/{uuid4()}").status_code == 404

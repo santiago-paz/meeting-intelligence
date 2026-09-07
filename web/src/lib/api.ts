@@ -61,3 +61,35 @@ export async function getMeeting(id: string): Promise<MeetingDetail | null> {
   if (!response.ok) throw new Error(`API responded ${response.status} for meeting ${id}`);
   return response.json();
 }
+
+export type TraceSummary = {
+  trace_id: string;
+  created_at: string;
+  mode: AskMode;
+  question: string;
+  model: string;
+  refused: boolean;
+  citation_count: number;
+  dropped_citations: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cost_usd: number;
+  latency_ms: number;
+  rounds: number;
+  tool_call_count: number;
+};
+export type TraceDetail = AskResponse & { created_at: string };
+
+export async function listTraces(limit = 100): Promise<TraceSummary[]> {
+  const response = await fetch(`${apiUrl()}/traces?limit=${limit}`);
+  if (!response.ok) throw new Error(`API responded ${response.status} listing traces`);
+  return response.json();
+}
+
+export async function getTrace(id: string): Promise<TraceDetail | null> {
+  const response = await fetch(`${apiUrl()}/traces/${id}`);
+  if (response.status === 404 || response.status === 422) return null; // unknown, or not even a uuid
+  if (!response.ok) throw new Error(`API responded ${response.status} for trace ${id}`);
+  return response.json();
+}

@@ -17,6 +17,8 @@ from app.models import (
     MeetingOutline,
     MeetingSummary,
     Trace,
+    TraceDetail,
+    TraceSummary,
     Turn,
 )
 
@@ -228,3 +230,31 @@ async def list_meeting_outlines(conn: AsyncConnection) -> list[MeetingOutline]:
             " FROM meetings m ORDER BY m.meeting_date NULLS LAST, m.title"
         )
         return [MeetingOutline(**row) for row in await cur.fetchall()]
+
+
+_TRACE_COLUMNS = (
+    "id AS trace_id, created_at, mode, question, model, answer, refused, citations, dropped_citations,"
+    " retrieved, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd::float AS cost_usd,"
+    " latency_ms, index_rows, tool_calls, rounds"
+)
+
+
+async def list_traces(conn: AsyncConnection, *, limit: int = 50) -> list[TraceSummary]:
+    """Newest first. Counts stand in for the JSON columns so the list stays light."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT id AS trace_id, created_at, mode, question, model, refused,"
+            " jsonb_array_length(citations) AS citation_count, dropped_citations,"
+            " input_tokens, output_tokens, cache_read_tokens, cost_usd::float AS cost_usd, latency_ms,"
+            " rounds, jsonb_array_length(tool_calls) AS tool_call_count"
+            " FROM traces ORDER BY created_at DESC, id LIMIT %s",
+            (limit,),
+        )
+        return [TraceSummary(**r) for r in await cur.fetchall()]
+
+
+async def get_trace(conn: AsyncConnection, trace_id: UUID) -> TraceDetail | None:
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(f"SELECT {_TRACE_COLUMNS} FROM traces WHERE id = %s", (trace_id,))
+        row = await cur.fetchone()
+    return TraceDetail(**row) if row else None

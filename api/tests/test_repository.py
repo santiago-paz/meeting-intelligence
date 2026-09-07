@@ -4,9 +4,10 @@ import pytest
 
 from datetime import date
 
-from app.models import ActionItem, Chunk, Decision, ToolCall, Trace, Turn
+from app.models import ActionItem, Chunk, Citation, Decision, ToolCall, Trace, Turn
 from app.repository import (
     get_meeting,
+    get_trace,
     get_turns,
     get_turns_for_meetings,
     insert_extraction,
@@ -15,6 +16,7 @@ from app.repository import (
     list_index,
     list_meeting_outlines,
     list_meetings,
+    list_traces,
     search_chunks,
 )
 
@@ -235,3 +237,48 @@ async def test_outlines_carry_date_speakers_turn_count_and_headers_in_order(migr
     assert outlines[1].turn_count == 2
     assert outlines[1].headers == ["First half.", "Second half."]
     assert outlines[0].headers == [] and outlines[0].speakers == ["Marco"]
+
+
+def _trace(**overrides) -> Trace:
+    base = dict(
+        mode="classic", question="Who leads pricing?", model="claude-opus-5",
+        answer="Ana leads it. [[M1#7]]", refused=False, citations=[], dropped_citations=0,
+        retrieved=[], input_tokens=10, output_tokens=5, cache_read_tokens=0,
+        cache_write_tokens=0, cost_usd=0.000175, latency_ms=1234,
+    )
+    return Trace(**{**base, **overrides})
+
+
+READ = ToolCall(round=1, name="read_turns", input={"meeting_ref": "M1", "start": 0, "end": 3}, summary="M1 turns 0-3", latency_ms=12)
+CITED = Citation(ref="M1", meeting_id=uuid4(), meeting_title="q4", turn=7, speaker="Ana", start_seconds=800, timestamp="00:13:20", text="I lead it.")
+
+
+async def test_traces_are_listed_newest_first_as_summaries(migrated_conn):
+    import asyncio
+
+    first = await insert_trace(migrated_conn, _trace(question="First?"))
+    await asyncio.sleep(0.002)
+    second = await insert_trace(
+        migrated_conn, _trace(question="Second?", mode="agentic", rounds=2, tool_calls=[READ], citations=[CITED]),
+    )
+
+    rows = await list_traces(migrated_conn, limit=10)
+
+    assert [(r.trace_id, r.question) for r in rows] == [(second, "Second?"), (first, "First?")]
+    top = rows[0]
+    assert (top.mode, top.rounds, top.tool_call_count, top.citation_count, top.refused) == ("agentic", 2, 1, 1, False)
+    assert (top.cost_usd, top.latency_ms, top.model) == (0.000175, 1234, "claude-opus-5")
+    assert top.created_at is not None
+    assert await list_traces(migrated_conn, limit=1) == rows[:1]
+
+
+async def test_a_trace_comes_back_whole_and_a_missing_one_is_none(migrated_conn):
+    trace_id = await insert_trace(migrated_conn, _trace(mode="agentic", rounds=1, tool_calls=[READ], citations=[CITED]))
+
+    detail = await get_trace(migrated_conn, trace_id)
+
+    assert detail.trace_id == trace_id and detail.created_at is not None
+    assert detail.question == "Who leads pricing?" and detail.answer == "Ana leads it. [[M1#7]]"
+    assert detail.tool_calls[0].summary == "M1 turns 0-3" and detail.tool_calls[0].input == {"meeting_ref": "M1", "start": 0, "end": 3}
+    assert detail.citations[0].text == "I lead it."
+    assert await get_trace(migrated_conn, uuid4()) is None

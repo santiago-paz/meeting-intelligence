@@ -137,6 +137,33 @@ class AskResponse(Trace):
     trace_id: UUID
 
 
+class TraceSummary(BaseModel):
+    """One row of the traces page: enough to scan, without the answer text."""
+
+    trace_id: UUID
+    created_at: datetime
+    mode: str
+    question: str
+    model: str
+    refused: bool
+    citation_count: int
+    dropped_citations: int
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cost_usd: float
+    latency_ms: int
+    rounds: int
+    tool_call_count: int
+
+
+class TraceDetail(Trace):
+    """A stored trace, whole, as the traces page shows it."""
+
+    trace_id: UUID
+    created_at: datetime
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
     mode: Literal["classic", "agentic"] = "classic"
