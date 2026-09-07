@@ -1,5 +1,11 @@
 # Meeting Intelligence
 
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&logoColor=white)](web/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python%203.13-009688?logo=fastapi&logoColor=white)](api/)
+[![Postgres and pgvector](https://img.shields.io/badge/Postgres-pgvector-4169E1?logo=postgresql&logoColor=white)](#2-architecture-overview)
+[![Claude](https://img.shields.io/badge/AI-Claude-D97757?logo=anthropic&logoColor=white)](#4-rag-and-llm-approach-and-decisions)
+[![Test mode: no API key needed](https://img.shields.io/badge/Test_mode-No_API_key_needed-34C77B)](#1-quick-setup)
+
 This is a challenge requested by an important company that wanted me to create a 
 system that can load meeting transcripts and find key facts, and also ask questions
 about them.
