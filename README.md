@@ -1,8 +1,17 @@
 # Meeting Intelligence
 
-Upload meeting transcripts, then ask what was discussed, decided and assigned.
-Every claim in an answer points at the turn it comes from, and the code checks
-that pointer before the answer reaches the screen.
+This is a challenge requested by an important company that wanted me to create a 
+system that can load meeting transcripts and find key facts, and also ask questions
+about them.
+
+Once I was doing it, I was also checking Anthropic documentation, where I found a [pretty
+interesting article](https://docs.claude-mem.ai/progressive-disclosure) about 2 ways of creating RAG: the classical mode, but also 
+the progressive disclosure way.
+
+I added the two to the platform, so you can use the traditional RAG with chunking, embeddings, retrieval, etc,
+but also the agent checking an index and going through the ones that are found most important
+
+Of course, everything here is measured, and you can check the evals in this document.
 
 ![Meeting Intelligence: transcript library and recent questions](docs/screenshots/cover.jpg)
 
