@@ -1,3 +1,6 @@
+from datetime import datetime
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -10,8 +13,11 @@ class Turn(BaseModel):
     text: str
 
 
-class MeetingResponse(BaseModel):
-    turns: list[Turn]
+class MeetingCreated(BaseModel):
+    id: UUID
+    title: str
+    turn_count: int
+    chunk_count: int
 
 
 class Chunk(BaseModel):
@@ -22,3 +28,17 @@ class Chunk(BaseModel):
     turn_end: int
     text: str
     token_estimate: int
+
+
+class MeetingDetail(BaseModel):
+    id: UUID
+    title: str
+    created_at: datetime
+    turns: list[Turn]
+
+
+class MeetingSummary(BaseModel):
+    id: UUID
+    title: str
+    created_at: datetime
+    turn_count: int
