@@ -55,15 +55,37 @@ async def migrated_conn(db_conn):
     return db_conn
 
 
-@pytest.fixture
-def client(test_db_url: str, monkeypatch):
-    """A TestClient whose lifespan ran against an empty test database."""
+def _client(test_db_url: str, monkeypatch, *, with_llm: bool):
+    """A TestClient whose lifespan ran against an empty test database.
+
+    Model-backed services are replaced by fakes so the suite stays offline and
+    fast; the key is blanked so no real client is ever built here.
+    """
     monkeypatch.setenv("DATABASE_URL", test_db_url)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     with psycopg.connect(test_db_url, autocommit=True) as conn:
         conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
     from fastapi.testclient import TestClient
 
-    from app.main import app
+    from app.main import app, get_embedder, get_enricher
+    from tests.fakes import FakeEmbedder, FakeEnricher
 
-    with TestClient(app) as test_client:
-        yield test_client
+    app.dependency_overrides[get_embedder] = FakeEmbedder
+    if with_llm:
+        app.dependency_overrides[get_enricher] = FakeEnricher
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(test_db_url: str, monkeypatch):
+    yield from _client(test_db_url, monkeypatch, with_llm=True)
+
+
+@pytest.fixture
+def client_without_llm(test_db_url: str, monkeypatch):
+    """The app as it boots with no ANTHROPIC_API_KEY configured."""
+    yield from _client(test_db_url, monkeypatch, with_llm=False)

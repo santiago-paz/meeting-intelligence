@@ -2,6 +2,8 @@
 
 from uuid import uuid4
 
+import psycopg
+
 TRANSCRIPT = b"[00:12:04] Marco: Arrancamos.\n[00:12:11] Ana: Dale."
 
 
@@ -75,3 +77,23 @@ def test_get_unknown_meeting_is_404(client):
     response = client.get(f"/meetings/{uuid4()}")
 
     assert response.status_code == 404
+
+
+def test_create_meeting_stores_a_context_header_and_an_embedding_per_chunk(client, test_db_url):
+    meeting_id = _upload(client).json()["id"]
+
+    with psycopg.connect(test_db_url) as conn:
+        rows = conn.execute(
+            "SELECT context_header, embedding IS NOT NULL FROM chunks"
+            " WHERE meeting_id = %s ORDER BY idx",
+            (meeting_id,),
+        ).fetchall()
+
+    assert rows == [("Context for chunk 0", True)]
+
+
+def test_create_meeting_without_an_anthropic_key_is_a_clear_503(client_without_llm):
+    response = _upload(client_without_llm)
+
+    assert response.status_code == 503
+    assert "ANTHROPIC_API_KEY" in response.json()["detail"]

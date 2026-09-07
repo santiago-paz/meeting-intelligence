@@ -28,6 +28,9 @@ class Chunk(BaseModel):
     turn_end: int
     text: str
     token_estimate: int
+    # Filled by the enrichment step; the chunker leaves them empty.
+    context_header: str | None = None
+    embedding: list[float] | None = None
 
 
 class MeetingDetail(BaseModel):
@@ -42,3 +45,16 @@ class MeetingSummary(BaseModel):
     title: str
     created_at: datetime
     turn_count: int
+
+
+class ChunkHit(BaseModel):
+    """A chunk returned by similarity search, with where it came from."""
+
+    meeting_id: UUID
+    meeting_title: str
+    idx: int
+    turn_start: int
+    turn_end: int
+    text: str
+    context_header: str | None
+    similarity: float

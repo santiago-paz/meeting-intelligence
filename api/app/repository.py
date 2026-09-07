@@ -5,7 +5,7 @@ from uuid import UUID
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
-from app.models import Chunk, MeetingDetail, MeetingSummary, Turn
+from app.models import Chunk, ChunkHit, MeetingDetail, MeetingSummary, Turn
 
 
 async def insert_meeting(
@@ -30,10 +30,14 @@ async def insert_meeting(
                 [(meeting_id, t.idx, t.speaker, t.start_seconds, t.text) for t in turns],
             )
             await batch.executemany(
-                "INSERT INTO chunks (meeting_id, idx, turn_start, turn_end, text, token_estimate)"
-                " VALUES (%s, %s, %s, %s, %s, %s)",
+                "INSERT INTO chunks (meeting_id, idx, turn_start, turn_end, text,"
+                " token_estimate, context_header, embedding)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector)",
                 [
-                    (meeting_id, c.idx, c.turn_start, c.turn_end, c.text, c.token_estimate)
+                    (
+                        meeting_id, c.idx, c.turn_start, c.turn_end, c.text,
+                        c.token_estimate, c.context_header, _to_pgvector(c.embedding),
+                    )
                     for c in chunks
                 ],
             )
@@ -65,3 +69,33 @@ async def list_meetings(conn: AsyncConnection) -> list[MeetingSummary]:
             " GROUP BY m.id ORDER BY m.created_at DESC, m.id"
         )
         return [MeetingSummary(**r) for r in await cur.fetchall()]
+
+
+async def search_chunks(
+    conn: AsyncConnection,
+    query_embedding: list[float],
+    *,
+    limit: int = 8,
+    meeting_id: UUID | None = None,
+) -> list[ChunkHit]:
+    """Chunks closest to the query by cosine similarity, most similar first."""
+    vector = _to_pgvector(query_embedding)
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT c.meeting_id, m.title AS meeting_title, c.idx, c.turn_start, c.turn_end,"
+            " c.text, c.context_header, 1 - (c.embedding <=> %s::vector) AS similarity"
+            " FROM chunks c JOIN meetings m ON m.id = c.meeting_id"
+            " WHERE c.embedding IS NOT NULL"
+            " AND (%s::uuid IS NULL OR c.meeting_id = %s)"
+            " ORDER BY c.embedding <=> %s::vector"
+            " LIMIT %s",
+            (vector, meeting_id, meeting_id, vector, limit),
+        )
+        return [ChunkHit(**row) for row in await cur.fetchall()]
+
+
+def _to_pgvector(embedding: list[float] | None) -> str | None:
+    """pgvector's text form, so no adapter registration is needed on the pool."""
+    if embedding is None:
+        return None
+    return "[" + ",".join(repr(float(x)) for x in embedding) + "]"

@@ -86,12 +86,18 @@ none.
    is information, not metadata.
 3. Context header: one cheap model call per chunk (claude-haiku-4-5) writes a
    sentence that places the chunk inside the meeting. The whole transcript sits
-   in the prompt with caching on, so it is paid for once. The header goes in
-   front of the chunk before embedding. It is what makes "yeah, by Friday"
-   retrievable.
-4. Embed the header plus chunk. The model is chosen in the embedding slice.
-   Anthropic does not ship an embeddings endpoint, so this comes from Voyage or
-   OpenAI.
+   in the prompt as cached data, and the first chunk runs alone so the cache is
+   warm before the rest fan out; fired all at once, every call would miss it.
+   The header goes in front of the chunk before embedding. It is what makes
+   "yeah, by Friday" retrievable. Without an API key the upload answers 503
+   rather than storing chunks that would retrieve badly.
+4. Embed the header plus chunk with a local model, BAAI/bge-small-en-v1.5
+   through ONNX on CPU (384 dimensions). Anthropic does not ship an embeddings
+   endpoint, and a second vendor key would make the demo harder to run for no
+   gain at this corpus size. The embedder sits behind a two-method interface,
+   so a hosted model such as Voyage is a swap plus one migration for the
+   vector width. Vectors are written as pgvector text literals, which keeps
+   the driver free of adapter registration.
 5. Extract decisions and action items from the full transcript with structured
    output (claude-opus-5). Two rules in the prompt carry most of the value: a
    row must point at the turn where it was said, or be left out; and mentioning
@@ -197,3 +203,8 @@ steps.
   about one extra hour and buy a measured comparison.
 - 2026-09-07. Plain SQL through psycopg with numbered migration files, no ORM.
   Storage tests hit the real database from Compose.
+- 2026-09-07. Local embeddings (bge-small via fastembed) over Voyage or OpenAI:
+  one credential to run the whole demo, quality that is enough for five
+  meetings, and a documented swap path. Model-backed services are injected as
+  dependencies so the test suite runs offline against fakes; the embedder loads
+  on first use so tests never pull the model.
