@@ -47,6 +47,19 @@ components. The chat streams: the Next handler forwards the API's server-sent
 events without buffering, and the last event carries the citations and a trace
 id.
 
+The Ask page is that stream made visible. A question box with a mode switch
+sits on top; answers stack under it, newest first. While an answer is on its
+way the page shows what the model is doing, one line per tool call as the
+event arrives (which turns it read, what it searched, how long the call
+took), so the wait reads as work. In the answer, every marker the model wrote
+becomes a small chip where it stood (meeting ref and timecode), and under
+the answer a list of cited moments quotes each turn in full, with the speaker
+and a link into the transcript. Pressing a chip marks its moment with the
+same highlighter stroke the transcript uses for a linked turn, so the two
+pages read as one system. A "How it was answered" fold shows the tool calls
+or the retrieved excerpts, tokens, cache hits and cost. Answers persist for
+the browser session, so a trip into a transcript and back loses nothing.
+
 ## Data model
 
 ```
@@ -312,3 +325,13 @@ steps.
   prompt change. The earlier runs were re-judged with the current judge so
   that no number compares across judge versions; the regraded copies sit
   next to the originals in `eval-runs/`.
+- 2026-09-07. Citations in the answer are chips, and the evidence is a list
+  under the answer rather than a tooltip or a side panel: the quoted turn
+  needs room to be read, tooltips do not work on touch, and a list can be
+  keyboard-walked. The chip carries the meeting ref and the timecode, the
+  list carries the words. Both modes answer through `/ask/stream`; classic
+  sends a single answer event, so the page has one code path. The link from
+  a cited moment into the transcript is a plain anchor, because the
+  transcript highlights the linked turn with CSS `:target`, which browsers
+  re-evaluate only on a real fragment navigation and not on the pushState a
+  client-side link performs.

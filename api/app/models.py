@@ -78,6 +78,7 @@ class Citation(BaseModel):
     speaker: str
     start_seconds: int
     timestamp: str
+    text: str = ""  # the words at that moment; empty on traces stored before it was recorded
 
 
 class RetrievedChunk(BaseModel):

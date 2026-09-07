@@ -169,6 +169,7 @@ def validate_citations(text: str, contexts: list[Citable]) -> CitationCheck:
                     speaker=turn.speaker,
                     start_seconds=turn.start_seconds,
                     timestamp=format_timestamp(turn.start_seconds),
+                    text=turn.text,
                 )
             )
         return match.group(0)

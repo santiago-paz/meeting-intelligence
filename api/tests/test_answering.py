@@ -199,3 +199,16 @@ async def test_the_rules_tell_the_model_the_index_is_a_summary_to_check_against_
     assert "index" in system and "summary" in system
     assert "check the excerpts before" in system
     assert "only for what the entry itself states" in system
+
+
+def test_citations_carry_the_quoted_text():
+    from uuid import uuid4
+
+    from app.models import Turn
+
+    turns = [Turn(idx=3, speaker="Diego", start_seconds=46, text="I'll add the funnel events by Friday.")]
+    contexts = [Citable(ref="M1", meeting_id=uuid4(), meeting_title="weekly", turns=turns)]
+
+    check = validate_citations("Diego committed. [[M1#3]]", contexts)
+
+    assert check.citations[0].text == "I'll add the funnel events by Friday."

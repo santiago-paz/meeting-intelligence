@@ -29,10 +29,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <header className="sticky top-0 z-10 border-b border-rule bg-surface/90 backdrop-blur">
-          <nav className="mx-auto flex w-full max-w-6xl items-center px-4 py-3">
+          <nav className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
             <Link href="/" className="font-display text-sm font-semibold tracking-tight text-ink">
               Meeting Intelligence
             </Link>
+            <ul className="flex items-center gap-4 font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">
+              <li>
+                <Link href="/" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                  Meetings
+                </Link>
+              </li>
+              <li>
+                <Link href="/ask" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                  Ask
+                </Link>
+              </li>
+            </ul>
           </nav>
         </header>
         {children}

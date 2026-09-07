@@ -1,4 +1,6 @@
 import asyncio
+import json
+import logging
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -7,6 +9,7 @@ from uuid import UUID
 
 from anthropic import AsyncAnthropic
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from psycopg import AsyncConnection
 from psycopg_pool import AsyncConnectionPool
 from starlette.concurrency import run_in_threadpool
@@ -19,10 +22,12 @@ from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
 from app.enrichment import ClaudeEnricher, Enricher
 from app.extraction import ClaudeExtractor, Extractor, validate_extraction
-from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary
+from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary, ToolCall
 from app.parsing import TranscriptParseError, date_from_filename, parse_metadata, parse_transcript
 from app.repository import get_meeting, insert_extraction, insert_meeting, list_meetings
 from app.settings import Settings
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -197,6 +202,75 @@ async def ask(
         )
     except AnswerUnavailable as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _event(name: str, data: dict) -> str:
+    return f"event: {name}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/ask/stream")
+async def ask_stream(
+    body: AskRequest, embedder: EmbedderDep, answerer: AnswererDep, agent: AgentDep, request: Request
+) -> StreamingResponse:
+    """The same answer as /ask, as server-sent events.
+
+    Agentic mode sends a `tool_call` event for every tool the model uses, as
+    it happens, so the wait reads as work; both modes end with one `answer`
+    event carrying the /ask payload, or an `error` event with a detail. The
+    stream takes its own connection from the pool: a request-scoped one may
+    be returned before the last event is written."""
+    service = agent if body.mode == "agentic" else answerer
+    if service is None:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set; answering needs it.")
+    queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
+
+    async def on_tool_call(call: ToolCall) -> None:
+        await queue.put(("tool_call", call.model_dump(mode="json")))
+
+    async def work() -> None:
+        try:
+            async with request.app.state.pool.connection() as conn:
+                if body.mode == "agentic":
+                    response = await answer_agentic(
+                        conn,
+                        question=body.question,
+                        embedder=embedder,
+                        agent=agent,
+                        max_rounds=request.app.state.settings.agent_max_rounds,
+                        on_tool_call=on_tool_call,
+                    )
+                else:
+                    response = await answer_classic(
+                        conn,
+                        question=body.question,
+                        embedder=embedder,
+                        answerer=answerer,
+                        limit=body.limit,
+                        meeting_id=body.meeting_id,
+                        use_index=body.use_index,
+                    )
+            await queue.put(("answer", response.model_dump(mode="json")))
+        except AnswerUnavailable as exc:
+            await queue.put(("error", {"detail": str(exc)}))
+        except Exception:  # noqa: BLE001 - the headers are out; the client must still hear the end
+            log.exception("answering failed mid-stream")
+            await queue.put(("error", {"detail": "Answering failed on the server; the question was not answered."}))
+        finally:
+            await queue.put(None)
+
+    async def events() -> AsyncIterator[str]:
+        task = asyncio.create_task(work())
+        try:
+            while (item := await queue.get()) is not None:
+                yield _event(*item)
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(
+        events(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/health")

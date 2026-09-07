@@ -306,3 +306,79 @@ def test_agentic_mode_without_an_anthropic_key_is_a_clear_503(client_without_llm
     response = client_without_llm.post("/ask", json={"question": "Anything at all?", "mode": "agentic"})
 
     assert response.status_code == 503
+
+
+def _events(response) -> list[tuple[str, dict]]:
+    """Parse a server-sent event stream into (event, data) pairs."""
+    import json
+
+    events = []
+    for block in response.text.split("\n\n"):
+        if not block.strip():
+            continue
+        event, data = None, None
+        for line in block.splitlines():
+            if line.startswith("event: "):
+                event = line[len("event: "):]
+            elif line.startswith("data: "):
+                data = json.loads(line[len("data: "):])
+        events.append((event, data))
+    return events
+
+
+def test_ask_stream_sends_each_tool_call_before_the_answer(client):
+    _upload(client)
+    _agent("Marco opened. [[M1#0]]", actions=[
+        ("read_turns", {"meeting_ref": "M1", "start": 0, "end": 0}),
+        ("search_transcripts", {"query": "agree", "meeting_ref": None}),
+    ])
+
+    response = client.post("/ask/stream", json={"question": "Who spoke?", "mode": "agentic"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = _events(response)
+    assert [event for event, _ in events] == ["tool_call", "tool_call", "answer"]
+    first = events[0][1]
+    assert (first["round"], first["name"], first["summary"]) == (1, "read_turns", "M1 turns 0-0")
+    answer = events[2][1]
+    assert answer["mode"] == "agentic" and answer["trace_id"]
+    assert [(c["turn"], c["text"]) for c in answer["citations"]] == [(0, "Arrancamos.")]
+
+
+def test_ask_stream_in_classic_mode_is_just_the_answer(client):
+    _upload(client)
+    from app.main import app, get_answerer
+    from tests.fakes import FakeAnswerer
+
+    app.dependency_overrides[get_answerer] = lambda: FakeAnswerer("Marco opened it. [[M1#0]]")
+
+    response = client.post("/ask/stream", json={"question": "Who started?"})
+
+    events = _events(response)
+    assert [event for event, _ in events] == ["answer"]
+    assert events[0][1]["mode"] == "classic" and events[0][1]["citations"][0]["speaker"] == "Marco"
+
+
+def test_ask_stream_reports_a_declined_answer_as_an_error_event(client):
+    _upload(client)
+    from app.main import app, get_agent
+    from tests.fakes import FakeAgent
+
+    class RefusingAgent(FakeAgent):
+        async def run(self, **kwargs):
+            run = await super().run(**kwargs)
+            return run.model_copy(update={"stop_reason": "refusal"})
+
+    app.dependency_overrides[get_agent] = lambda: RefusingAgent("whatever")
+
+    response = client.post("/ask/stream", json={"question": "Anything?", "mode": "agentic"})
+
+    assert response.status_code == 200
+    assert _events(response) == [("error", {"detail": "The model declined to answer this question."})]
+
+
+def test_ask_stream_without_an_anthropic_key_is_a_clear_503(client_without_llm):
+    response = client_without_llm.post("/ask/stream", json={"question": "Anything at all?", "mode": "agentic"})
+
+    assert response.status_code == 503
