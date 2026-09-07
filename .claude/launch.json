@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd api && uv run uvicorn app.main:app --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd web && npm run dev"],
+      "port": 3000
+    }
+  ]
+}

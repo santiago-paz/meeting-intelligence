@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Tokens. One loud color, the highlighter, reserved for the cited moment.
+  Everything else is ink on a cool white sheet.
+*/
+@theme {
+  --color-surface: #edeff2;
+  --color-sheet: #ffffff;
+  --color-ink: #14213d;
+  --color-ink-muted: #5b6478;
+  --color-rule: #d5d9e0;
+  --color-marker: #ffe45c;
+  --color-marker-ink: #6b4e00;
+  --color-alert: #9b2c2c;
 }
 
+/* Type roles. Grotesk for the interface, serif for the spoken words, mono for timecodes. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+  scroll-padding-top: 4rem; /* keep anchored turns clear of the sticky header */
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+input,
+label {
+  touch-action: manipulation;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+}
+
+/*
+  The signature: a turn addressed by the URL hash (#turn-12) gets a
+  highlighter stroke that sweeps in from the left. This is how a citation
+  will point at the exact moment it quotes. The stroke is a pseudo-element
+  scaled on the compositor, so long transcripts stay smooth, and turns
+  outside the viewport skip layout entirely.
+*/
+.turn {
+  position: relative;
+  isolation: isolate;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 4.5rem;
+}
+
+.turn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--color-marker) 55%, white);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.turn:target::before {
+  transform: scaleX(1);
+  animation: highlight-sweep 600ms ease-out;
+}
+
+.turn:target .timecode {
+  color: var(--color-marker-ink);
+  font-weight: 500;
+}
+
+@keyframes highlight-sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn:target::before {
+    animation: none;
+  }
 }
