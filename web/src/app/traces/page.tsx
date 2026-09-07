@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { PageHeader } from "@/components/page-header";
 import { TraceTable } from "@/components/trace-table";
 import { listTraces } from "@/lib/api";
 import { pickLocale } from "@/lib/time";
@@ -28,19 +29,17 @@ export default async function TracesPage() {
       .map((mode): [string, string] => [`Median ${mode}`, formatLatency(totals.median_latency_ms[mode]!)]),
   ];
   return (
-    <main id="main" className="mx-auto w-full max-w-5xl px-4 py-8 sm:py-12">
-      <header className="mb-6">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-balance text-ink">Traces</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          The latest {LIMIT} questions answered, newest first: what the model read, what it cited, what it cost.
-        </p>
-      </header>
+    <main id="main" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <PageHeader
+        title="Traces"
+        lede={`The latest ${LIMIT} questions answered, newest first: what the model read, what it cited, what it cost.`}
+      />
       {rows.length > 0 && (
-        <dl className="mb-6 flex flex-wrap gap-2">
+        <dl className="mb-6 flex flex-wrap gap-3">
           {figures.map(([label, value]) => (
-            <div key={label} className="min-w-[9rem] flex-1 rounded-md border border-rule bg-sheet px-4 py-3">
-              <dt className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">{label}</dt>
-              <dd className="mt-1 font-display text-xl font-semibold tabular-nums text-ink">{value}</dd>
+            <div key={label} className="min-w-[9rem] flex-1 rounded-lg border border-rule bg-sheet px-4 py-3">
+              <dt className="eyebrow text-ink-muted">{label}</dt>
+              <dd className="mt-1.5 font-display text-2xl font-bold tracking-tight text-ink">{value}</dd>
             </div>
           ))}
         </dl>

@@ -341,3 +341,14 @@ steps.
   transcript highlights the linked turn with CSS `:target`, which browsers
   re-evaluate only on a real fragment navigation and not on the pushState a
   client-side link performs.
+- 2026-09-07. The web app's navigation moved from a top bar to a rail down
+  the left, set in the ink color, with a mark beside the name: a page with
+  three lines of transcript and a highlighter stroke over the middle one, the
+  cited moment drawn small. The interface face is Bricolage Grotesque from
+  Google Fonts, loaded with its optical size and width axes, so titles carry
+  its character and small labels stay plain. Source Serif 4 still sets the
+  spoken words, because a serif for the people and a grotesk for the system
+  is the pairing's meaning. Monospace is gone everywhere, timecodes included.
+  Bricolage has tabular figures, so columns line up without it, and the mono
+  read as a terminal rather than a reading tool. Yellow stays reserved for the
+  cited moment and the mark.

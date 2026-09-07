@@ -42,10 +42,10 @@ export function UploadTranscript() {
     <form
       aria-label="Upload a transcript"
       onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-md border border-rule bg-sheet p-4 sm:flex-row sm:items-end"
+      className="flex flex-col gap-3 rounded-lg border border-rule bg-sheet p-4 sm:flex-row sm:items-end"
     >
       <div className="flex flex-1 flex-col gap-1.5">
-        <label htmlFor="transcript" className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">
+        <label htmlFor="transcript" className="eyebrow text-ink-muted">
           Transcript file
         </label>
         <input
@@ -55,16 +55,19 @@ export function UploadTranscript() {
           type="file"
           accept=".txt,text/plain"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          className="text-sm text-ink file:mr-3 file:rounded-sm file:border file:border-rule file:bg-surface file:px-3 file:py-1.5 file:font-mono file:text-xs file:text-ink hover:file:bg-marker/40"
+          className="text-sm text-ink file:mr-3 file:rounded-md file:border file:border-rule file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink hover:file:bg-marker/40"
         />
         <p className="text-xs text-ink-muted">
-          A .txt with one line per turn, like <code translate="no" className="font-mono">[00:12:04] Marco: Hola.</code>
+          A .txt with one line per turn, like{" "}
+          <code translate="no" className="rounded bg-surface px-1.5 py-0.5 text-[0.8rem] text-ink">
+            [00:12:04] Marco: Hola.
+          </code>
         </p>
       </div>
       <button
         type="submit"
         disabled={uploading}
-        className="rounded-sm bg-ink px-4 py-2 font-mono text-xs uppercase tracking-[0.08em] text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60"
       >
         {uploading ? "Uploading…" : "Upload transcript"}
       </button>

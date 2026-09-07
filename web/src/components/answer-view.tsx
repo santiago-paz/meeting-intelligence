@@ -30,19 +30,17 @@ export function AnswerView({ exchange }: { exchange: Exchange }) {
   }
 
   return (
-    <article aria-labelledby={`${exchange.id}-question`} className="rounded-md border border-rule bg-sheet">
+    <article aria-labelledby={`${exchange.id}-question`} className="rounded-lg border border-rule bg-sheet">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-rule/60 px-4 py-3">
-        <h2 id={`${exchange.id}-question`} className="min-w-0 break-words font-display text-base font-medium text-ink">
+        <h2 id={`${exchange.id}-question`} className="min-w-0 break-words font-display text-base font-semibold text-ink">
           {exchange.question}
         </h2>
-        <p className="font-mono text-xs tabular-nums text-ink-muted">
+        <p className="text-xs tabular-nums text-ink-muted">
           {response.mode} · {(response.latency_ms / 1000).toFixed(1)} s
         </p>
       </header>
       <div className="px-4 py-4">
-        {response.refused && (
-          <p className="mb-2 font-mono text-xs uppercase tracking-[0.08em] text-marker-ink">Not in the meetings</p>
-        )}
+        {response.refused && <p className="eyebrow mb-2 text-marker-ink">Not in the meetings</p>}
         <div className="answer max-w-[68ch] text-[0.95rem] leading-relaxed text-ink">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -61,15 +59,15 @@ export function AnswerView({ exchange }: { exchange: Exchange }) {
       </div>
       {response.citations.length > 0 && (
         <section className="border-t border-rule/60 px-4 py-4">
-          <h3 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">Cited moments</h3>
-          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs text-ink-muted">
+          <h3 className="eyebrow text-ink-muted">Cited moments</h3>
+          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-muted">
             {meetings.map((meeting) => (
               <span key={meeting.ref}>
-                <span className="text-ink">{meeting.ref}</span> <span>{meeting.meeting_title}</span>
+                <span className="font-semibold text-ink">{meeting.ref}</span> <span>{meeting.meeting_title}</span>
               </span>
             ))}
           </p>
-          <ol aria-label="Cited moments" className="mt-3 divide-y divide-rule/60 rounded-sm border border-rule">
+          <ol aria-label="Cited moments" className="mt-3 divide-y divide-rule/60 rounded-md border border-rule">
             {response.citations.map((citation) => {
               const key = citationKey(citation);
               return (
@@ -77,13 +75,13 @@ export function AnswerView({ exchange }: { exchange: Exchange }) {
                   key={key}
                   id={rowId(exchange.id, key)}
                   data-cited={selected === key ? "true" : "false"}
-                  className="turn grid scroll-mt-24 grid-cols-[6.5rem_1fr] gap-x-4 gap-y-1 px-3 py-3"
+                  className="turn grid scroll-mt-20 grid-cols-[6.5rem_1fr] gap-x-4 gap-y-1 px-3 py-3 lg:scroll-mt-6"
                   style={{ "--speaker": colors.get(citation.speaker) } as CSSProperties}
                 >
-                  <span className="timecode pt-0.5 font-mono text-xs tabular-nums text-ink-muted">
+                  <span className="timecode pt-0.5 text-xs tabular-nums text-ink-muted">
                     {citation.ref} · {citation.timestamp}
                   </span>
-                  <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted before:mr-2 before:inline-block before:size-2.5 before:rounded-[2px] before:bg-(--speaker) before:align-[-1px]">
+                  <span className="eyebrow text-ink-muted before:mr-2 before:inline-block before:size-2.5 before:rounded-[2px] before:bg-(--speaker) before:align-[-1px]">
                     {citation.speaker}
                   </span>
                   <p className="col-start-2 max-w-[62ch] font-serif text-[1.02rem] leading-relaxed break-words text-ink">
@@ -95,7 +93,7 @@ export function AnswerView({ exchange }: { exchange: Exchange }) {
                   <a
                     href={`/meetings/${citation.meeting_id}#turn-${citation.turn}`}
                     aria-label={`Open transcript at ${citation.timestamp} in ${citation.meeting_title}`}
-                    className="col-start-2 w-fit font-mono text-xs text-ink-muted underline decoration-rule underline-offset-4 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    className="col-start-2 w-fit text-xs font-medium text-ink-muted underline decoration-rule underline-offset-4 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                   >
                     Open transcript
                   </a>
@@ -106,7 +104,7 @@ export function AnswerView({ exchange }: { exchange: Exchange }) {
         </section>
       )}
       <details className="group border-t border-rule/60 px-4 py-3">
-        <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.08em] text-ink-muted before:mr-2 before:inline-block before:transition-transform before:content-['▸'] group-open:before:rotate-90 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+        <summary className="eyebrow cursor-pointer list-none text-ink-muted before:mr-2 before:inline-block before:transition-transform before:content-['▸'] group-open:before:rotate-90 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
           How it was answered
         </summary>
         <HowItWasAnswered response={response} />
@@ -126,7 +124,7 @@ function CitationChip({ citation, pressed, onPress }: { citation: Citation; pres
       aria-label={`Citation ${citation.ref} turn ${citation.turn}, ${citation.speaker} at ${citation.timestamp}`}
       aria-pressed={pressed}
       onClick={onPress}
-      className="mx-0.5 inline-block rounded-sm border border-rule bg-surface px-1.5 py-px align-baseline font-mono text-[0.7rem] tabular-nums text-ink-muted hover:border-marker-ink/40 hover:bg-marker/40 hover:text-marker-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink aria-pressed:border-marker-ink/40 aria-pressed:bg-marker/70 aria-pressed:text-marker-ink"
+      className="mx-0.5 inline-block rounded-sm border border-rule bg-surface px-1.5 py-px align-baseline text-[0.7rem] font-semibold tabular-nums text-ink-muted hover:border-marker-ink/40 hover:bg-marker/40 hover:text-marker-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink aria-pressed:border-marker-ink/40 aria-pressed:bg-marker/70 aria-pressed:text-marker-ink"
     >
       {`${citation.ref} · ${citation.timestamp}`}
     </button>
@@ -149,12 +147,12 @@ function HowItWasAnswered({ response }: { response: AskResponse }) {
           note: chunk.similarity === null ? "index" : `similarity ${chunk.similarity.toFixed(2)}`,
         }));
   return (
-    <div className="mt-3 flex flex-col gap-3 font-mono text-xs text-ink-muted">
+    <div className="mt-3 flex flex-col gap-3 text-xs text-ink-muted">
       {steps.length > 0 && (
         <ol className="flex flex-col gap-1">
           {steps.map((step) => (
             <li key={step.key} className="grid grid-cols-[7.5rem_1fr_auto] gap-x-3">
-              <span className="text-ink">{step.name}</span>
+              <span className="font-semibold text-ink">{step.name}</span>
               <span className="min-w-0 break-words">{step.detail}</span>
               <span className="tabular-nums">{step.note}</span>
             </li>

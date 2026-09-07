@@ -31,28 +31,28 @@ export default async function TracePage(props: PageProps<"/traces/[id]">) {
   ];
 
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
+    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <header className="mb-6">
-        <p className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">
+        <p className="eyebrow text-ink-muted">
           <Link href="/traces" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
             Traces
           </Link>{" "}
           / trace
         </p>
-        <p className="mt-1 font-mono text-xs tabular-nums text-ink-muted">
+        <p className="mt-1.5 text-xs tabular-nums text-ink-muted">
           <time dateTime={trace.created_at}>{formatDateTime(trace.created_at, locale)}</time> · {trace.mode} · {trace.model}
         </p>
       </header>
       <AnswerView exchange={{ id: trace.trace_id, question: trace.question, mode: trace.mode, response: trace }} />
       {trace.tool_calls.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">Tool calls, with arguments</h2>
-          <ol className="mt-2 divide-y divide-rule/60 rounded-md border border-rule bg-sheet">
+        <section className="mt-8">
+          <h2 className="eyebrow text-ink-muted">Tool calls, with arguments</h2>
+          <ol className="mt-2 divide-y divide-rule/60 rounded-lg border border-rule bg-sheet">
             {trace.tool_calls.map((call, i) => (
-              <li key={i} className="grid gap-x-4 gap-y-1 px-4 py-3 font-mono text-xs sm:grid-cols-[5rem_1fr_auto]">
+              <li key={i} className="grid gap-x-4 gap-y-1 px-4 py-3 text-xs sm:grid-cols-[5rem_1fr_auto]">
                 <span className="text-ink-muted">round {call.round}</span>
                 <div className="min-w-0">
-                  <span className="text-ink">{call.name}</span>
+                  <span className="font-semibold text-ink">{call.name}</span>
                   <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-ink-muted">{JSON.stringify(call.input)}</pre>
                   <span className="text-ink-muted">{call.summary}</span>
                 </div>
@@ -62,13 +62,13 @@ export default async function TracePage(props: PageProps<"/traces/[id]">) {
           </ol>
         </section>
       )}
-      <section className="mt-6">
-        <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">Tokens and cost</h2>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <section className="mt-8">
+        <h2 className="eyebrow text-ink-muted">Tokens and cost</h2>
+        <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {tokens.map(([label, value]) => (
-            <div key={label} className="rounded-md border border-rule bg-sheet px-4 py-3">
-              <dt className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">{label}</dt>
-              <dd className="mt-1 font-mono text-sm tabular-nums text-ink">{value}</dd>
+            <div key={label} className="rounded-lg border border-rule bg-sheet px-4 py-3">
+              <dt className="eyebrow text-ink-muted">{label}</dt>
+              <dd className="mt-1.5 font-display text-lg font-semibold text-ink">{value}</dd>
             </div>
           ))}
         </dl>

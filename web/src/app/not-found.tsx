@@ -1,11 +1,15 @@
 import Link from "next/link";
 
+import { PageHeader } from "@/components/page-header";
+
 export default function NotFound() {
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-16">
-      <h1 className="font-display text-2xl font-semibold tracking-tight text-balance text-ink">That meeting doesn’t exist</h1>
-      <p className="mt-2 text-sm text-ink-muted">It may have been removed, or the link is wrong.</p>
-      <Link href="/" className="mt-6 inline-block font-mono text-xs uppercase tracking-[0.08em] text-ink underline underline-offset-4 hover:text-marker-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+      <PageHeader title="That page doesn’t exist" lede="It may have been removed, or the link is wrong." />
+      <Link
+        href="/"
+        className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-semibold text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
         Back to meetings
       </Link>
     </main>

@@ -71,15 +71,15 @@ export function AskPanel({ initialMode = "classic" }: { initialMode?: AskMode })
     <div className="flex flex-col gap-6">
       <AskForm busy={working !== null} onAsk={ask} initialMode={initialMode} />
       {working && (
-        <section role="status" aria-live="polite" className="rounded-md border border-rule bg-sheet px-4 py-3 font-mono text-xs text-ink-muted">
-          <p className="working text-ink">
+        <section role="status" aria-live="polite" className="rounded-lg border border-rule bg-sheet px-4 py-3 text-xs text-ink-muted">
+          <p className="working font-medium text-ink">
             {working.mode === "agentic" ? "Reading the table of contents…" : "Reading the closest excerpts…"}
           </p>
           {working.toolCalls.length > 0 && (
             <ol className="mt-2 flex flex-col gap-1">
               {working.toolCalls.map((call, i) => (
                 <li key={i} className="grid grid-cols-[7.5rem_1fr_auto] gap-x-3">
-                  <span className="text-ink">{call.name}</span>
+                  <span className="font-semibold text-ink">{call.name}</span>
                   <span className="min-w-0 break-words">{call.summary}</span>
                   <span className="tabular-nums">{call.latency_ms} ms</span>
                 </li>
@@ -89,7 +89,7 @@ export function AskPanel({ initialMode = "classic" }: { initialMode?: AskMode })
         </section>
       )}
       {error && (
-        <p role="alert" className="rounded-md border border-alert/30 bg-sheet px-4 py-3 text-sm text-alert">
+        <p role="alert" className="rounded-lg border border-alert/30 bg-sheet px-4 py-3 text-sm text-alert">
           {error}
         </p>
       )}

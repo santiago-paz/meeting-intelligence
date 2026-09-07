@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 /*
-  Tokens. One loud color, the highlighter, reserved for the cited moment.
-  Everything else is ink on a cool white sheet.
+  Tokens. One loud color, the highlighter, reserved for the cited moment and
+  for the mark. Everything else is ink on a cool white sheet, and the rail
+  down the left is solid ink.
 */
 @theme {
   --color-surface: #edeff2;
@@ -15,17 +16,38 @@
   --color-alert: #9b2c2c;
 }
 
-/* Type roles. Grotesk for the interface, serif for the spoken words, mono for timecodes. */
+/*
+  Type roles. One grotesk for the interface, loaded with its optical sizes so
+  titles get its character and small labels stay tidy; a serif for the spoken
+  words. Figures are tabular wherever they line up in a column. No monospace
+  anywhere, not even for code, so the browser's default for it is overridden.
+*/
 @theme inline {
-  --font-display: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-source-serif), "Iowan Old Style", Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+/* A small uppercase label: field names, table heads, breadcrumbs, speakers. Color is set alongside. */
+@utility eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 html {
   color-scheme: light;
-  scroll-padding-top: 4rem; /* keep anchored turns clear of the sticky header */
+  scroll-padding-top: 4.5rem; /* keep anchored turns clear of the bar on small screens */
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 64rem) {
+  html {
+    scroll-padding-top: 1rem; /* the rail stands beside the content; nothing covers it */
+  }
 }
 
 a,
@@ -40,6 +62,13 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-display);
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: inherit;
 }
 
 /*
@@ -79,7 +108,7 @@ body {
 .turn:target .timecode,
 .turn[data-cited="true"] .timecode {
   color: var(--color-marker-ink);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @keyframes highlight-sweep {
@@ -140,8 +169,10 @@ body {
 }
 
 .answer code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
+  border-radius: 0.25rem;
+  background: var(--color-surface);
+  padding: 0 0.3em;
+  font-size: 0.92em;
 }
 
 /* The wait reads as work: a soft pulse on the status line, none for reduced motion. */

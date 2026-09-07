@@ -1,58 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Schibsted_Grotesk, Source_Serif_4 } from "next/font/google";
-import Link from "next/link";
+import { Bricolage_Grotesque, Source_Serif_4 } from "next/font/google";
+
+import { AppShell } from "@/components/app-shell";
 
 import "./globals.css";
 
-const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
+// The optical size and width axes are what give the face its character at large
+// sizes and its calm at small ones; both are opt-in because they cost bytes.
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], axes: ["opsz", "wdth"], variable: "--font-bricolage" });
 const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-source-serif" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
   title: { default: "Meeting Intelligence", template: "%s · Meeting Intelligence" },
   description: "Upload meeting transcripts and read them as a timeline.",
 };
 
-export const viewport: Viewport = { themeColor: "#edeff2" };
+export const viewport: Viewport = { themeColor: "#14213d" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${schibsted.variable} ${sourceSerif.variable} ${plexMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full flex-col">
+    <html lang="en" className={`${bricolage.variable} ${sourceSerif.variable} h-full antialiased`}>
+      <body className="min-h-full">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-20 focus:rounded-sm focus:bg-ink focus:px-3 focus:py-1.5 focus:font-mono focus:text-xs focus:uppercase focus:tracking-[0.08em] focus:text-sheet"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-40 focus:rounded-md focus:bg-sheet focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-ink"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-10 border-b border-rule bg-surface/90 backdrop-blur">
-          <nav className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
-            <Link href="/" className="font-display text-sm font-semibold tracking-tight text-ink">
-              Meeting Intelligence
-            </Link>
-            <ul className="flex items-center gap-4 font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">
-              <li>
-                <Link href="/" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-                  Meetings
-                </Link>
-              </li>
-              <li>
-                <Link href="/ask" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-                  Ask
-                </Link>
-              </li>
-              <li>
-                <Link href="/traces" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-                  Traces
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </header>
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

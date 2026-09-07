@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHeader } from "@/components/page-header";
 import { TranscriptView } from "@/components/transcript-view";
 import { getMeeting } from "@/lib/api";
 import { speakerColors } from "@/lib/speakers";
@@ -26,35 +27,39 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
   const lastTurn = meeting.turns.at(-1);
 
   return (
-    <main id="main" className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <main id="main" className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <article>
-        <header className="mb-4">
-          <p className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">
-            <Link href="/" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-              Meetings
-            </Link>{" "}
-            / transcript
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-balance break-words text-ink">{meeting.title}</h1>
-          <p className="mt-1 font-mono text-xs tabular-nums text-ink-muted">
-            {meeting.turns.length} turns · ends {lastTurn ? formatTimecode(lastTurn.start_seconds) : "00:00:00"} ·{" "}
-            {colors.size} {colors.size === 1 ? "speaker" : "speakers"}
-          </p>
-        </header>
-        <div className="rounded-md border border-rule bg-sheet px-2 py-1">
+        <PageHeader
+          crumb={
+            <>
+              <Link href="/" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                Meetings
+              </Link>{" "}
+              / transcript
+            </>
+          }
+          title={meeting.title}
+          meta={
+            <>
+              {meeting.turns.length} turns · ends {lastTurn ? formatTimecode(lastTurn.start_seconds) : "00:00:00"} ·{" "}
+              {colors.size} {colors.size === 1 ? "speaker" : "speakers"}
+            </>
+          }
+        />
+        <div className="rounded-lg border border-rule bg-sheet px-2 py-1">
           <TranscriptView turns={meeting.turns} />
         </div>
       </article>
-      <aside className="lg:sticky lg:top-20 lg:self-start">
-        <h2 className="font-mono text-xs uppercase tracking-[0.08em] text-ink-muted">Speakers</h2>
-        <ul className="mt-2 divide-y divide-rule/60 rounded-md border border-rule bg-sheet">
+      <aside className="lg:sticky lg:top-8 lg:self-start">
+        <h2 className="eyebrow text-ink-muted">Speakers</h2>
+        <ul className="mt-2 divide-y divide-rule/60 rounded-lg border border-rule bg-sheet">
           {[...colors].map(([speaker, color]) => (
             <li key={speaker} className="flex items-center justify-between px-3 py-2 text-sm text-ink">
               <span className="flex min-w-0 items-center gap-2">
                 <span aria-hidden className="size-2.5 shrink-0 rounded-[2px]" style={{ background: color }} />
-                <span className="truncate">{speaker}</span>
+                <span className="truncate font-medium">{speaker}</span>
               </span>
-              <span className="font-mono text-xs tabular-nums text-ink-muted">
+              <span className="text-xs tabular-nums text-ink-muted">
                 {turnsBySpeaker.get(speaker)} {turnsBySpeaker.get(speaker) === 1 ? "turn" : "turns"}
               </span>
             </li>
