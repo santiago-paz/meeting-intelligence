@@ -111,8 +111,17 @@ none.
 ## Query path: two modes
 
 `POST /ask` takes a question and a `mode`. Both modes share the index builder,
-the two retrieval functions, the answer schema, the citation check and the
+the two retrieval functions, the answer format, the citation check and the
 trace writer. The difference is who decides what the model reads.
+
+The answer is plain text with inline markers: the model writes `[[M2#5]]`
+right after a claim, naming the excerpt's short ref and the turn number it
+was shown. Code resolves each marker to meeting, turn, speaker and timecode,
+strips any marker that points at a turn the model never saw, and counts
+those as dropped citations. A refusal is the explicit marker `[[none]]` with
+no valid citation beside it, so the eval counts refusals without guessing
+from wording, and an answer that cites real turns is never a refusal. Plain text with
+markers also streams naturally, which matters for agentic mode.
 
 In classic mode the system decides. Embed the question, take the top 8 chunks,
 append every extracted row (about 40 rows at this corpus size, roughly 1.5k
@@ -203,6 +212,11 @@ steps.
   about one extra hour and buy a measured comparison.
 - 2026-09-07. Plain SQL through psycopg with numbered migration files, no ORM.
   Storage tests hit the real database from Compose.
+- 2026-09-07. Inline citation markers over a structured claims list: each
+  citation sits next to the sentence it supports, the text streams as is,
+  and validation stays in code. Classic mode ships without streaming; the
+  one call it makes returns everything the eval and the traces page need.
+  Streaming arrives with agentic mode, where progress events earn it.
 - 2026-09-07. Local embeddings (bge-small via fastembed) over Voyage or OpenAI:
   one credential to run the whole demo, quality that is enough for five
   meetings, and a documented swap path. Model-backed services are injected as

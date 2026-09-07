@@ -4,8 +4,9 @@ from uuid import UUID
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
-from app.models import Chunk, ChunkHit, MeetingDetail, MeetingSummary, Turn
+from app.models import Chunk, ChunkHit, MeetingDetail, MeetingSummary, Trace, Turn
 
 
 async def insert_meeting(
@@ -99,3 +100,37 @@ def _to_pgvector(embedding: list[float] | None) -> str | None:
     if embedding is None:
         return None
     return "[" + ",".join(repr(float(x)) for x in embedding) + "]"
+
+
+async def get_turns(conn: AsyncConnection, meeting_id: UUID, start: int, end: int) -> list[Turn]:
+    """Turns start..end inclusive, in order."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT idx, speaker, start_seconds, text FROM turns"
+            " WHERE meeting_id = %s AND idx BETWEEN %s AND %s ORDER BY idx",
+            (meeting_id, start, end),
+        )
+        return [Turn(**row) for row in await cur.fetchall()]
+
+
+async def insert_trace(conn: AsyncConnection, trace: Trace) -> UUID:
+    async with conn.transaction():
+        return await _insert_trace(conn, trace)
+
+
+async def _insert_trace(conn: AsyncConnection, trace: Trace) -> UUID:
+    cur = await conn.execute(
+        "INSERT INTO traces (mode, question, model, answer, refused, citations,"
+        " dropped_citations, retrieved, input_tokens, output_tokens, cache_read_tokens,"
+        " cache_write_tokens, cost_usd, latency_ms)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (
+            trace.mode, trace.question, trace.model, trace.answer, trace.refused,
+            Jsonb([c.model_dump(mode="json") for c in trace.citations]),
+            trace.dropped_citations,
+            Jsonb([r.model_dump(mode="json") for r in trace.retrieved]),
+            trace.input_tokens, trace.output_tokens, trace.cache_read_tokens,
+            trace.cache_write_tokens, trace.cost_usd, trace.latency_ms,
+        ),
+    )
+    return (await cur.fetchone())[0]

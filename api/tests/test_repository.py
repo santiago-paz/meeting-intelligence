@@ -2,8 +2,15 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Chunk, Turn
-from app.repository import get_meeting, insert_meeting, list_meetings, search_chunks
+from app.models import Chunk, Trace, Turn
+from app.repository import (
+    get_meeting,
+    get_turns,
+    insert_meeting,
+    insert_trace,
+    list_meetings,
+    search_chunks,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -117,3 +124,31 @@ async def test_search_ignores_chunks_that_have_no_embedding(migrated_conn):
     hits = await search_chunks(migrated_conn, _vec({0: 1.0}), limit=5)
 
     assert [h.idx for h in hits] == [1]
+
+
+async def test_get_turns_returns_the_inclusive_range_in_order(migrated_conn):
+    turns = [Turn(idx=i, speaker="A", start_seconds=i, text=f"t{i}") for i in range(6)]
+    meeting_id = await insert_meeting(
+        migrated_conn, title="M", source_filename="m.txt", turns=turns, chunks=[]
+    )
+
+    window = await get_turns(migrated_conn, meeting_id, 2, 4)
+
+    assert [t.idx for t in window] == [2, 3, 4]
+    assert window[0].text == "t2"
+
+
+async def test_insert_trace_stores_the_answer_and_returns_its_id(migrated_conn):
+    trace = Trace(
+        mode="classic", question="Who leads pricing?", model="claude-opus-5",
+        answer="Ana leads it. [[M1#7]]", refused=False, citations=[], dropped_citations=0,
+        retrieved=[], input_tokens=10, output_tokens=5, cache_read_tokens=0,
+        cache_write_tokens=0, cost_usd=0.000175, latency_ms=1234,
+    )
+
+    trace_id = await insert_trace(migrated_conn, trace)
+
+    cur = await migrated_conn.execute(
+        "SELECT question, answer, cost_usd::float, latency_ms FROM traces WHERE id = %s", (trace_id,)
+    )
+    assert await cur.fetchone() == ("Who leads pricing?", "Ana leads it. [[M1#7]]", 0.000175, 1234)

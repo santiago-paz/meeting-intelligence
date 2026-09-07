@@ -24,3 +24,20 @@ class FakeEmbedder:
 class FakeEnricher:
     async def context_headers(self, transcript: str, chunks: list[Chunk]) -> list[str]:
         return [f"Context for chunk {chunk.idx}" for chunk in chunks]
+
+
+class FakeAnswerer:
+    """Returns a fixed answer text; records the prompt it was given."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.prompts: list[str] = []
+
+    async def answer(self, prompt: str):
+        from app.answering import AnswerResult
+
+        self.prompts.append(prompt)
+        return AnswerResult(
+            text=self.text, model="fake-model", stop_reason="end_turn",
+            input_tokens=100, output_tokens=20, cache_read_tokens=0, cache_write_tokens=0,
+        )

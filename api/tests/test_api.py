@@ -97,3 +97,57 @@ def test_create_meeting_without_an_anthropic_key_is_a_clear_503(client_without_l
 
     assert response.status_code == 503
     assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+def _ask(client, question: str, canned_answer: str):
+    from app.main import app, get_answerer
+    from tests.fakes import FakeAnswerer
+
+    app.dependency_overrides[get_answerer] = lambda: FakeAnswerer(canned_answer)
+    return client.post("/ask", json={"question": question})
+
+
+def test_ask_answers_with_resolved_citations_and_counts_the_dropped_ones(client, test_db_url):
+    _upload(client)
+
+    response = _ask(
+        client,
+        "Who started the meeting?",
+        "Marco opened it. [[M1#0]] Ana agreed. [[M1#1]] Bogus. [[M1#9]] [[M7#1]]",
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "Marco opened it. [[M1#0]] Ana agreed. [[M1#1]] Bogus."
+    assert [(c["speaker"], c["timestamp"], c["turn"]) for c in body["citations"]] == [
+        ("Marco", "00:12:04", 0),
+        ("Ana", "00:12:11", 1),
+    ]
+    assert body["dropped_citations"] == 2
+    assert body["refused"] is False
+    assert body["mode"] == "classic"
+    assert [r["ref"] for r in body["retrieved"]] == ["M1"]
+    assert body["trace_id"]
+    with psycopg.connect(test_db_url) as conn:
+        assert conn.execute("SELECT count(*) FROM traces").fetchone()[0] == 1
+
+
+def test_ask_reports_a_refusal_when_the_model_finds_nothing(client):
+    _upload(client)
+
+    body = _ask(client, "How many people are we hiring?", "The meetings do not cover hiring. [[none]]").json()
+
+    assert body["refused"] is True
+    assert body["citations"] == []
+    assert body["answer"] == "The meetings do not cover hiring."
+
+
+def test_ask_without_an_anthropic_key_is_a_clear_503(client_without_llm):
+    response = client_without_llm.post("/ask", json={"question": "Anything at all?"})
+
+    assert response.status_code == 503
+    assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+def test_ask_rejects_an_empty_question(client):
+    assert client.post("/ask", json={"question": ""}).status_code == 422

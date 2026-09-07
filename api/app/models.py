@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Turn(BaseModel):
@@ -58,3 +59,54 @@ class ChunkHit(BaseModel):
     text: str
     context_header: str | None
     similarity: float
+
+
+class Citation(BaseModel):
+    """A marker in the answer resolved to the exact moment it points at."""
+
+    ref: str
+    meeting_id: UUID
+    meeting_title: str
+    turn: int
+    speaker: str
+    start_seconds: int
+    timestamp: str
+
+
+class RetrievedChunk(BaseModel):
+    ref: str
+    meeting_id: UUID
+    meeting_title: str
+    turn_start: int
+    turn_end: int
+    similarity: float
+
+
+class Trace(BaseModel):
+    """Everything about one answered question. Stored, and returned to the caller."""
+
+    mode: str
+    question: str
+    model: str
+    answer: str
+    refused: bool
+    citations: list[Citation]
+    dropped_citations: int
+    retrieved: list[RetrievedChunk]
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    cost_usd: float
+    latency_ms: int
+
+
+class AskResponse(Trace):
+    trace_id: UUID
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=2000)
+    mode: Literal["classic"] = "classic"
+    meeting_id: UUID | None = None
+    limit: int = Field(default=8, ge=1, le=20)

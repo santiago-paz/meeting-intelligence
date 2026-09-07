@@ -9,6 +9,7 @@ context and each chunk is one short call.
 import asyncio
 from typing import Protocol
 
+from app.llm import first_text
 from app.models import Chunk
 
 CONTEXT_HEADER_MODEL = "claude-haiku-4-5"
@@ -69,11 +70,5 @@ class ClaudeEnricher:
                 }
             ],
         )
-        return _first_text(message).strip()
+        return first_text(message).strip()
 
-
-def _first_text(message) -> str:
-    for block in message.content:
-        if getattr(block, "type", None) == "text":
-            return block.text
-    return ""

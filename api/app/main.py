@@ -10,11 +10,13 @@ from psycopg import AsyncConnection
 from psycopg_pool import AsyncConnectionPool
 from starlette.concurrency import run_in_threadpool
 
+from app.answering import Answerer, ClaudeAnswerer
+from app.ask import AnswerUnavailable, answer_classic
 from app.chunking import build_chunks
 from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
 from app.enrichment import ClaudeEnricher, Enricher
-from app.models import MeetingCreated, MeetingDetail, MeetingSummary
+from app.models import AskRequest, AskResponse, MeetingCreated, MeetingDetail, MeetingSummary
 from app.parsing import TranscriptParseError, parse_transcript
 from app.repository import get_meeting, insert_meeting, list_meetings
 from app.settings import Settings
@@ -29,14 +31,14 @@ async def lifespan(app: FastAPI):
         await migrate(conn)
     app.state.settings = settings
     app.state.pool = pool
-    app.state.enricher = (
-        ClaudeEnricher(
-            AsyncAnthropic(api_key=settings.anthropic_api_key, base_url=settings.claude_base_url),
-            model=settings.context_header_model,
+    app.state.enricher = None
+    app.state.answerer = None
+    if settings.anthropic_api_key:
+        claude = AsyncAnthropic(api_key=settings.anthropic_api_key, base_url=settings.claude_base_url)
+        app.state.enricher = ClaudeEnricher(claude, model=settings.context_header_model)
+        app.state.answerer = ClaudeAnswerer(
+            claude, model=settings.answer_model, effort=settings.answer_effort
         )
-        if settings.anthropic_api_key
-        else None
-    )
     yield
     await pool.close()
 
@@ -59,6 +61,16 @@ def get_enricher(request: Request) -> Enricher:
     return enricher
 
 
+def get_answerer(request: Request) -> Answerer:
+    answerer = request.app.state.answerer
+    if answerer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY is not set; answering needs it.",
+        )
+    return answerer
+
+
 @lru_cache(maxsize=1)
 def _load_embedder(model_name: str) -> FastEmbedEmbedder:
     return FastEmbedEmbedder(model_name)
@@ -73,6 +85,7 @@ def get_embedder(request: Request) -> Embedder:
 Conn = Annotated[AsyncConnection, Depends(get_conn)]
 EnricherDep = Annotated[Enricher, Depends(get_enricher)]
 EmbedderDep = Annotated[Embedder, Depends(get_embedder)]
+AnswererDep = Annotated[Answerer, Depends(get_answerer)]
 
 
 @app.post("/meetings", response_model=MeetingCreated)
@@ -121,6 +134,24 @@ async def read_meeting(meeting_id: UUID, conn: Conn) -> MeetingDetail:
     if meeting is None:
         raise HTTPException(status_code=404, detail="Meeting not found.")
     return meeting
+
+
+@app.post("/ask", response_model=AskResponse)
+async def ask(body: AskRequest, conn: Conn, answerer: AnswererDep, embedder: EmbedderDep) -> AskResponse:
+    """Answer a question from the meetings. Classic mode: the system retrieves
+    the closest chunks, the model answers from them with inline citations, and
+    every citation is checked against what the model was shown."""
+    try:
+        return await answer_classic(
+            conn,
+            question=body.question,
+            embedder=embedder,
+            answerer=answerer,
+            limit=body.limit,
+            meeting_id=body.meeting_id,
+        )
+    except AnswerUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.get("/health")

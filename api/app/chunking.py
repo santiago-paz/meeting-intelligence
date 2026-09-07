@@ -54,10 +54,10 @@ def _to_chunk(idx: int, window: list[Turn]) -> Chunk:
 
 
 def _render_turn(turn: Turn) -> str:
-    return f"{turn.speaker} [{_format_timestamp(turn.start_seconds)}]: {turn.text}"
+    return f"{turn.speaker} [{format_timestamp(turn.start_seconds)}]: {turn.text}"
 
 
-def _format_timestamp(seconds: int) -> str:
+def format_timestamp(seconds: int) -> str:
     hours, rest = divmod(seconds, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
