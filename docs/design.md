@@ -149,11 +149,16 @@ In order of value:
 
 ## Evaluation
 
-A golden set of about 20 questions, written before the retriever, each with the
-turn ids that should support the answer. Types: lookup, aggregation, temporal,
-speaker-scoped, unanswerable. `eval.py` prints, per mode: faithfulness of
-claims against cited turns, coverage of the golden turn ids by what was
-fetched, refusal accuracy, latency and cost per question.
+A golden set of 22 questions in `fixtures/golden.json`, written before the
+retriever. Each answerable question lists the turns that support it, with a
+verbatim quote that a test checks against the transcripts, plus the atomic
+facts a complete answer states and the propositions a correct answer must
+never assert. Types: lookup, aggregation, temporal, speaker-scoped, an
+injection attempt spoken inside a meeting, a distractor, and unanswerable
+questions that must be refused. `eval.py` prints, per mode: key-fact
+completeness and faithfulness against cited turns (an LLM judge), coverage of
+the golden turns by what was fetched, refusal precision and recall, latency
+and cost per question.
 
 Unit tests cover the deterministic parts (parser, chunker, citation check).
 Storage and API tests run against the Postgres from Compose and are skipped
