@@ -1,17 +1,22 @@
 import Link from "next/link";
 
-import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 export default function NotFound() {
   return (
     <main id="main" className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <PageHeader title="That page doesn’t exist" lede="It may have been removed, or the link is wrong." />
-      <Link
-        href="/"
-        className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-semibold text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      >
-        Back to meetings
-      </Link>
+      <Empty className="border py-12">
+        <EmptyHeader>
+          <EmptyTitle className="text-base">That page doesn’t exist</EmptyTitle>
+          <EmptyDescription>It may have been removed, or the link is wrong.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button asChild variant="outline">
+            <Link href="/">Back to meetings</Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
     </main>
   );
 }

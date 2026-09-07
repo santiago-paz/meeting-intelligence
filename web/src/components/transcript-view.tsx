@@ -1,5 +1,4 @@
-import type { CSSProperties } from "react";
-
+import { SpeakerAvatar } from "@/components/speaker-avatar";
 import type { Turn } from "@/lib/api";
 import { speakerColors } from "@/lib/speakers";
 import { formatTimecode } from "@/lib/time";
@@ -12,24 +11,24 @@ import { formatTimecode } from "@/lib/time";
 export function TranscriptView({ turns }: { turns: Turn[] }) {
   const colors = speakerColors(turns);
   return (
-    <ol className="divide-y divide-rule/60">
+    <ol className="divide-y divide-border/70">
       {turns.map((turn) => (
         <li
           key={turn.idx}
           id={`turn-${turn.idx}`}
-          className="turn grid scroll-mt-20 grid-cols-[5.5rem_1fr] gap-x-4 gap-y-1 rounded-md px-2 py-3 sm:grid-cols-[6.5rem_1fr] lg:scroll-mt-6"
-          style={{ "--speaker": colors.get(turn.speaker) } as CSSProperties}
+          className="turn grid scroll-mt-20 grid-cols-[4.5rem_auto_1fr] items-start gap-x-3 gap-y-1 rounded-lg px-3 py-3 sm:grid-cols-[5.5rem_auto_1fr] sm:gap-x-4"
         >
           <a
             href={`#turn-${turn.idx}`}
-            className="timecode row-span-2 pt-1 text-xs tabular-nums text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="timecode w-fit rounded-sm pt-1 text-xs tabular-nums text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             {formatTimecode(turn.start_seconds)}
           </a>
-          <span className="eyebrow text-ink-muted before:mr-2 before:inline-block before:size-2.5 before:rounded-[2px] before:bg-(--speaker) before:align-[-1px]">
-            {turn.speaker}
-          </span>
-          <p className="max-w-[62ch] font-serif text-[1.05rem] leading-relaxed break-words text-ink">{turn.text}</p>
+          <SpeakerAvatar name={turn.speaker} color={colors.get(turn.speaker)!} size="sm" className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold">{turn.speaker}</p>
+            <p className="mt-0.5 max-w-[62ch] text-[0.9375rem] leading-relaxed break-words">{turn.text}</p>
+          </div>
         </li>
       ))}
     </ol>

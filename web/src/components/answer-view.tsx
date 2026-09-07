@@ -1,9 +1,15 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { SpeakerAvatar } from "@/components/speaker-avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { type AskMode, type AskResponse, type Citation, isRecorded } from "@/lib/api";
 import { citationKey, legend, markersToLinks, parseCiteHref } from "@/lib/citations";
 import { speakerColors } from "@/lib/speakers";
@@ -16,7 +22,7 @@ export type Fold = { open: boolean; onToggle: () => void };
 /**
  * One question and its answer. Every marker the model wrote becomes a chip
  * where it stood; pressing a chip marks the moment it points at in the list
- * of cited moments below, with the same highlighter the transcript uses.
+ * of cited moments below, with the same green the transcript uses.
  * Given a fold, the question is the button that opens and closes the answer;
  * without one (the trace page) the answer is always shown.
  */
@@ -41,39 +47,48 @@ export function AnswerView({ exchange, fold }: { exchange: Exchange; fold?: Fold
   }
 
   return (
-    <article aria-labelledby={questionId} data-recorded={recorded || undefined} className="rounded-lg border border-rule bg-sheet data-recorded:border-dashed">
+    <article
+      aria-labelledby={questionId}
+      data-recorded={recorded || undefined}
+      className="overflow-hidden rounded-xl border bg-card text-card-foreground data-recorded:border-dashed data-recorded:border-primary/40"
+    >
       {fold ? (
-        <h2 className="font-display text-base font-semibold text-ink">
+        <h2 className="text-base font-semibold">
           <button
             type="button"
             aria-expanded={fold.open}
             aria-controls={bodyId}
             onClick={fold.onToggle}
-            className="group flex w-full cursor-pointer flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg px-4 py-3 text-left hover:bg-surface/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink aria-expanded:rounded-b-none"
+            className="group flex w-full cursor-pointer flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
           >
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span aria-hidden="true" className="shrink-0 text-ink-muted group-hover:text-ink motion-safe:transition-transform group-aria-expanded:rotate-90">
-                ▸
-              </span>
+            <span className="flex min-w-0 items-center gap-2">
+              <ChevronRight
+                aria-hidden="true"
+                className="size-4 shrink-0 text-muted-foreground transition-transform group-aria-expanded:rotate-90 motion-reduce:transition-none"
+              />
               <span id={questionId} className="min-w-0 break-words">
                 {exchange.question}
               </span>
             </span>
-            <span className="text-xs font-normal tabular-nums text-ink-muted">{meta}</span>
+            <span className="text-xs font-normal tabular-nums text-muted-foreground">{meta}</span>
           </button>
         </h2>
       ) : (
         <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
-          <h2 id={questionId} className="min-w-0 break-words font-display text-base font-semibold text-ink">
+          <h2 id={questionId} className="min-w-0 text-base font-semibold break-words">
             {exchange.question}
           </h2>
-          <p className="text-xs tabular-nums text-ink-muted">{meta}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{meta}</p>
         </header>
       )}
-      <div id={bodyId} hidden={!open} className="border-t border-rule/60">
+      <div id={bodyId} hidden={!open} className="border-t">
         <div className="px-4 py-4">
-          {response.refused && <p className="eyebrow mb-2 text-marker-ink">Not in the meetings</p>}
-          <div className="answer max-w-[68ch] text-[0.95rem] leading-relaxed text-ink">
+          {response.refused && (
+            <Badge variant="secondary" className="mb-3 text-[0.6875rem] font-semibold tracking-[0.08em] uppercase text-primary">
+              Not in the meetings
+            </Badge>
+          )}
+          <div className="answer max-w-[68ch] text-[0.9375rem] leading-relaxed">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -90,57 +105,75 @@ export function AnswerView({ exchange, fold }: { exchange: Exchange; fold?: Fold
           </div>
         </div>
         {response.citations.length > 0 && (
-          <section className="border-t border-rule/60 px-4 py-4">
-            <h3 className="eyebrow text-ink-muted">Cited moments</h3>
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-muted">
-              {meetings.map((meeting) => (
-                <span key={meeting.ref}>
-                  <span className="font-semibold text-ink">{meeting.ref}</span> <span>{meeting.meeting_title}</span>
-                </span>
-              ))}
-            </p>
-            <ol aria-label="Cited moments" className="mt-3 divide-y divide-rule/60 rounded-md border border-rule">
+          <section className="border-t px-4 py-4">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h3 className="eyebrow text-muted-foreground">Cited moments</h3>
+              <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {meetings.map((meeting) => (
+                  <span key={meeting.ref}>
+                    <span className="font-semibold text-foreground">{meeting.ref}</span> <span>{meeting.meeting_title}</span>
+                  </span>
+                ))}
+              </p>
+            </div>
+            <ol aria-label="Cited moments" className="mt-3 flex flex-col gap-1">
               {response.citations.map((citation) => {
                 const key = citationKey(citation);
                 return (
-                  <li
-                    key={key}
-                    id={rowId(exchange.id, key)}
-                    data-cited={selected === key ? "true" : "false"}
-                    className="turn grid scroll-mt-20 grid-cols-[6.5rem_1fr] gap-x-4 gap-y-1 px-3 py-3 lg:scroll-mt-6"
-                    style={{ "--speaker": colors.get(citation.speaker) } as CSSProperties}
-                  >
-                    <span className="timecode pt-0.5 text-xs tabular-nums text-ink-muted">
-                      {citation.ref} · {citation.timestamp}
-                    </span>
-                    <span className="eyebrow text-ink-muted before:mr-2 before:inline-block before:size-2.5 before:rounded-[2px] before:bg-(--speaker) before:align-[-1px]">
-                      {citation.speaker}
-                    </span>
-                    <p className="col-start-2 max-w-[62ch] font-serif text-[1.02rem] leading-relaxed break-words text-ink">
-                      {citation.text}
-                    </p>
-                    {/* A plain anchor on purpose: the transcript highlights the turn with CSS :target,
-                        which browsers only re-evaluate on a real fragment navigation, not on the
-                        pushState a client-side Link performs. */}
-                    <a
-                      href={`/meetings/${citation.meeting_id}#turn-${citation.turn}`}
-                      aria-label={`Open transcript at ${citation.timestamp} in ${citation.meeting_title}`}
-                      className="col-start-2 w-fit text-xs font-medium text-ink-muted underline decoration-rule underline-offset-4 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                    >
-                      Open transcript
-                    </a>
-                  </li>
+                  <Item key={key} asChild size="sm" className="turn scroll-mt-20 items-start">
+                    <li id={rowId(exchange.id, key)} data-cited={selected === key ? "true" : "false"}>
+                      <ItemMedia>
+                        <SpeakerAvatar name={citation.speaker} color={colors.get(citation.speaker)!} size="sm" />
+                      </ItemMedia>
+                      <ItemContent className="gap-1">
+                        <ItemTitle className="flex-wrap gap-x-2 text-xs">
+                          <span className="font-semibold">{citation.speaker}</span>
+                          <span className="timecode font-normal tabular-nums text-muted-foreground">
+                            {citation.ref} · {citation.timestamp}
+                          </span>
+                        </ItemTitle>
+                        <ItemDescription className="line-clamp-none max-w-[62ch] text-[0.9375rem] leading-relaxed text-foreground">
+                          {citation.text}
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions className="self-start">
+                        {/* A plain anchor on purpose: the transcript highlights the turn with CSS :target,
+                            which browsers only re-evaluate on a real fragment navigation, not on the
+                            pushState a client-side Link performs. */}
+                        <Button asChild variant="ghost" size="xs" className="text-muted-foreground">
+                          <a
+                            href={`/meetings/${citation.meeting_id}#turn-${citation.turn}`}
+                            aria-label={`Open transcript at ${citation.timestamp} in ${citation.meeting_title}`}
+                          >
+                            Open transcript
+                            <ArrowUpRight />
+                          </a>
+                        </Button>
+                      </ItemActions>
+                    </li>
+                  </Item>
                 );
               })}
             </ol>
           </section>
         )}
-        <details className="group border-t border-rule/60 px-4 py-3">
-          <summary className="eyebrow cursor-pointer list-none text-ink-muted before:mr-2 before:inline-block before:transition-transform before:content-['▸'] group-open:before:rotate-90 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-            How it was answered
-          </summary>
-          <HowItWasAnswered response={response} />
-        </details>
+        <Collapsible className="border-t">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="group eyebrow flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
+            >
+              <ChevronRight
+                aria-hidden="true"
+                className="size-3.5 shrink-0 transition-transform group-data-open:rotate-90 motion-reduce:transition-none"
+              />
+              How it was answered
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="px-4 pb-4">
+            <HowItWasAnswered response={response} />
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </article>
   );
@@ -152,15 +185,20 @@ function rowId(exchangeId: string, key: string): string {
 
 function CitationChip({ citation, pressed, onPress }: { citation: Citation; pressed: boolean; onPress: () => void }) {
   return (
-    <button
-      type="button"
-      aria-label={`Citation ${citation.ref} turn ${citation.turn}, ${citation.speaker} at ${citation.timestamp}`}
-      aria-pressed={pressed}
-      onClick={onPress}
-      className="mx-0.5 inline-block rounded-sm border border-rule bg-surface px-1.5 py-px align-baseline text-[0.7rem] font-semibold tabular-nums text-ink-muted hover:border-marker-ink/40 hover:bg-marker/40 hover:text-marker-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink aria-pressed:border-marker-ink/40 aria-pressed:bg-marker/70 aria-pressed:text-marker-ink"
+    <Badge
+      asChild
+      variant="outline"
+      className="mx-0.5 h-[1.15rem] cursor-pointer rounded-md px-1.5 align-baseline text-[0.6875rem] font-semibold tabular-nums text-muted-foreground hover:border-primary/40 hover:bg-marker hover:text-foreground aria-pressed:border-primary/50 aria-pressed:bg-marker aria-pressed:text-foreground"
     >
-      {`${citation.ref} · ${citation.timestamp}`}
-    </button>
+      <button
+        type="button"
+        aria-label={`Citation ${citation.ref} turn ${citation.turn}, ${citation.speaker} at ${citation.timestamp}`}
+        aria-pressed={pressed}
+        onClick={onPress}
+      >
+        {`${citation.ref} · ${citation.timestamp}`}
+      </button>
+    </Badge>
   );
 }
 
@@ -180,12 +218,12 @@ function HowItWasAnswered({ response }: { response: AskResponse }) {
           note: chunk.similarity === null ? "index" : `similarity ${chunk.similarity.toFixed(2)}`,
         }));
   return (
-    <div className="mt-3 flex flex-col gap-3 text-xs text-ink-muted">
+    <div className="flex flex-col gap-3 text-xs text-muted-foreground">
       {steps.length > 0 && (
         <ol className="flex flex-col gap-1">
           {steps.map((step) => (
             <li key={step.key} className="grid grid-cols-[7.5rem_1fr_auto] gap-x-3">
-              <span className="font-semibold text-ink">{step.name}</span>
+              <span className="font-semibold text-foreground">{step.name}</span>
               <span className="min-w-0 break-words">{step.detail}</span>
               <span className="tabular-nums">{step.note}</span>
             </li>

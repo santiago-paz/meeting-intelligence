@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AnswerView } from "@/components/answer-view";
+import { PageHeader } from "@/components/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTrace } from "@/lib/api";
 import { formatDateTime, pickLocale } from "@/lib/time";
 import { formatCost, formatLatency } from "@/lib/traces";
@@ -31,45 +33,57 @@ export default async function TracePage(props: PageProps<"/traces/[id]">) {
   ];
 
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-      <header className="mb-6">
-        <p className="eyebrow text-ink-muted">
-          <Link href="/traces" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-            Traces
-          </Link>{" "}
-          / trace
-        </p>
-        <p className="mt-1.5 text-xs tabular-nums text-ink-muted">
-          <time dateTime={trace.created_at}>{formatDateTime(trace.created_at, locale)}</time> · {trace.mode} · {trace.model}
-        </p>
-      </header>
+    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <PageHeader
+        crumb={
+          <>
+            <Link href="/traces" className="rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+              Traces
+            </Link>{" "}
+            / trace
+          </>
+        }
+        title="One answer, and how it was made"
+        badge="Trace"
+        meta={
+          <>
+            <time dateTime={trace.created_at}>{formatDateTime(trace.created_at, locale)}</time> · {trace.mode} · {trace.model}
+          </>
+        }
+      />
       <AnswerView exchange={{ id: trace.trace_id, question: trace.question, mode: trace.mode, response: trace }} />
       {trace.tool_calls.length > 0 && (
-        <section className="mt-8">
-          <h2 className="eyebrow text-ink-muted">Tool calls, with arguments</h2>
-          <ol className="mt-2 divide-y divide-rule/60 rounded-lg border border-rule bg-sheet">
-            {trace.tool_calls.map((call, i) => (
-              <li key={i} className="grid gap-x-4 gap-y-1 px-4 py-3 text-xs sm:grid-cols-[5rem_1fr_auto]">
-                <span className="text-ink-muted">round {call.round}</span>
-                <div className="min-w-0">
-                  <span className="font-semibold text-ink">{call.name}</span>
-                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-ink-muted">{JSON.stringify(call.input)}</pre>
-                  <span className="text-ink-muted">{call.summary}</span>
-                </div>
-                <span className="tabular-nums text-ink-muted">{call.latency_ms} ms</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Tool calls, with arguments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="flex flex-col divide-y">
+              {trace.tool_calls.map((call, i) => (
+                <li key={i} className="grid gap-x-4 gap-y-1 py-3 text-xs first:pt-0 last:pb-0 sm:grid-cols-[5rem_1fr_auto]">
+                  <span className="text-muted-foreground">round {call.round}</span>
+                  <div className="min-w-0">
+                    <span className="font-semibold">{call.name}</span>
+                    <pre className="mt-1 overflow-x-auto font-mono break-words whitespace-pre-wrap text-muted-foreground">
+                      {JSON.stringify(call.input)}
+                    </pre>
+                    <span className="text-muted-foreground">{call.summary}</span>
+                  </div>
+                  <span className="tabular-nums text-muted-foreground">{call.latency_ms} ms</span>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
       )}
-      <section className="mt-8">
-        <h2 className="eyebrow text-ink-muted">Tokens and cost</h2>
+      <section className="mt-6">
+        <h2 className="eyebrow text-muted-foreground">Tokens and cost</h2>
         <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {tokens.map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-rule bg-sheet px-4 py-3">
-              <dt className="eyebrow text-ink-muted">{label}</dt>
-              <dd className="mt-1.5 font-display text-lg font-semibold text-ink">{value}</dd>
-            </div>
+            <Card key={label} size="sm" className="gap-1 px-4">
+              <dt className="eyebrow text-muted-foreground">{label}</dt>
+              <dd className="text-lg font-semibold tracking-tight tabular-nums">{value}</dd>
+            </Card>
           ))}
         </dl>
       </section>

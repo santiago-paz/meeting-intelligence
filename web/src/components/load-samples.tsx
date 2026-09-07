@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
+
 type Status = { kind: "idle" } | { kind: "loading" } | { kind: "done" } | { kind: "error"; message: string };
 
 /**
@@ -36,25 +39,16 @@ export function LoadSamples() {
 
   const busy = status.kind === "loading" || status.kind === "done";
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={load}
-        disabled={busy}
-        className="w-fit rounded-md bg-ink px-4 py-2 text-sm font-semibold whitespace-nowrap text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60"
-      >
+    <div className="flex flex-col items-start gap-2">
+      <Button type="button" variant="outline" onClick={load} disabled={busy}>
         {status.kind === "loading" ? "Loading…" : status.kind === "done" ? "Loaded" : "Load the sample meetings"}
-      </button>
+      </Button>
       {status.kind === "loading" && (
-        <p role="status" className="max-w-[40ch] text-xs text-ink-muted">
+        <p role="status" className="max-w-[40ch] text-xs text-muted-foreground">
           Embedding the transcripts on this machine. The first time also downloads the embedding model, so give it a minute.
         </p>
       )}
-      {status.kind === "error" && (
-        <p role="alert" className="text-sm text-alert">
-          {status.message}
-        </p>
-      )}
+      {status.kind === "error" && <FieldError>{status.message}</FieldError>}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { PageHeader } from "@/components/page-header";
 import { TraceTable } from "@/components/trace-table";
+import { Card } from "@/components/ui/card";
 import { listTraces } from "@/lib/api";
 import { pickLocale } from "@/lib/time";
 import { formatCost, formatLatency, summarizeTraces } from "@/lib/traces";
@@ -29,18 +30,19 @@ export default async function TracesPage() {
       .map((mode): [string, string] => [`Median ${mode}`, formatLatency(totals.median_latency_ms[mode]!)]),
   ];
   return (
-    <main id="main" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+    <main id="main" className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="Traces"
+        badge={rows.length > 0 ? `${rows.length} ${rows.length === 1 ? "question" : "questions"}` : undefined}
         lede={`The latest ${LIMIT} questions answered, newest first: what the model read, what it cited, what it cost.`}
       />
       {rows.length > 0 && (
-        <dl className="mb-6 flex flex-wrap gap-3">
+        <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {figures.map(([label, value]) => (
-            <div key={label} className="min-w-[9rem] flex-1 rounded-lg border border-rule bg-sheet px-4 py-3">
-              <dt className="eyebrow text-ink-muted">{label}</dt>
-              <dd className="mt-1.5 font-display text-2xl font-bold tracking-tight text-ink">{value}</dd>
-            </div>
+            <Card key={label} size="sm" className="gap-1 px-4">
+              <dt className="eyebrow text-muted-foreground">{label}</dt>
+              <dd className="text-2xl font-semibold tracking-tight tabular-nums">{value}</dd>
+            </Card>
           ))}
         </dl>
       )}

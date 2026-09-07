@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { SpeakerAvatar } from "@/components/speaker-avatar";
 import { TranscriptView } from "@/components/transcript-view";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMeeting } from "@/lib/api";
 import { speakerColors } from "@/lib/speakers";
 import { formatTimecode } from "@/lib/time";
@@ -27,18 +29,19 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
   const lastTurn = meeting.turns.at(-1);
 
   return (
-    <main id="main" className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <main id="main" className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
       <article>
         <PageHeader
           crumb={
             <>
-              <Link href="/" className="hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+              <Link href="/" className="rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
                 Meetings
               </Link>{" "}
               / transcript
             </>
           }
           title={meeting.title}
+          badge="Meeting"
           meta={
             <>
               {meeting.turns.length} turns · ends {lastTurn ? formatTimecode(lastTurn.start_seconds) : "00:00:00"} ·{" "}
@@ -46,28 +49,34 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
             </>
           }
         />
-        <div className="rounded-lg border border-rule bg-sheet px-2 py-1">
+        <Card className="gap-0 py-1">
           <TranscriptView turns={meeting.turns} />
-        </div>
+        </Card>
       </article>
-      <aside className="lg:sticky lg:top-8 lg:self-start">
-        <h2 className="eyebrow text-ink-muted">Speakers</h2>
-        <ul className="mt-2 divide-y divide-rule/60 rounded-lg border border-rule bg-sheet">
-          {[...colors].map(([speaker, color]) => (
-            <li key={speaker} className="flex items-center justify-between px-3 py-2 text-sm text-ink">
-              <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden className="size-2.5 shrink-0 rounded-[2px]" style={{ background: color }} />
-                <span className="truncate font-medium">{speaker}</span>
-              </span>
-              <span className="text-xs tabular-nums text-ink-muted">
-                {turnsBySpeaker.get(speaker)} {turnsBySpeaker.get(speaker) === 1 ? "turn" : "turns"}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          Each timecode is a link to that moment. Open one and the turn is highlighted.
-        </p>
+      <aside className="lg:sticky lg:top-[calc(var(--header-height)+1.5rem)] lg:self-start">
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>Speakers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-2">
+              {[...colors].map(([speaker, color]) => (
+                <li key={speaker} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <SpeakerAvatar name={speaker} color={color} size="sm" />
+                    <span className="truncate font-medium">{speaker}</span>
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {turnsBySpeaker.get(speaker)} {turnsBySpeaker.get(speaker) === 1 ? "turn" : "turns"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              Each timecode is a link to that moment. Open one and the turn is highlighted.
+            </p>
+          </CardContent>
+        </Card>
       </aside>
     </main>
   );

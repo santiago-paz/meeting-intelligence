@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { speakerColors } from "@/lib/speakers";
+import { speakerColors, speakerInitials } from "@/lib/speakers";
 
 describe("speakerColors", () => {
   it("assigns one color per speaker in order of first appearance", () => {
@@ -14,5 +14,17 @@ describe("speakerColors", () => {
     const colors = speakerColors(["A", "B", "C", "D", "E", "F"].map((speaker) => ({ speaker })));
 
     expect(colors.get("F")).toBe(colors.get("A"));
+  });
+});
+
+describe("speakerInitials", () => {
+  it("takes the first letter of the first two words, in capitals", () => {
+    expect(speakerInitials("Marco")).toBe("M");
+    expect(speakerInitials("Ana Torres")).toBe("AT");
+    expect(speakerInitials("juan carlos pérez")).toBe("JC");
+  });
+
+  it("falls back to a question mark for a blank name", () => {
+    expect(speakerInitials("  ")).toBe("?");
   });
 });

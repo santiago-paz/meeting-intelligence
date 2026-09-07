@@ -1,9 +1,12 @@
 "use client";
 
+import { LoaderCircle, MessageSquare } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 
 import { AnswerView } from "@/components/answer-view";
 import { AskForm } from "@/components/ask-form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import type { AskMode, AskResponse, TestModeStatus, ToolCall } from "@/lib/api";
 import { readExchanges, readServerExchanges, subscribeExchanges, writeExchanges } from "@/lib/exchange-store";
 import { readEvents } from "@/lib/sse";
@@ -72,11 +75,12 @@ export function AskPanel({ initialMode = "classic", testMode = null }: { initial
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <AskForm busy={working !== null} onAsk={ask} initialMode={initialMode} testMode={testMode} />
       {working && (
-        <section role="status" aria-live="polite" className="rounded-lg border border-rule bg-sheet px-4 py-3 text-xs text-ink-muted">
-          <p className="working font-medium text-ink">
+        <section role="status" aria-live="polite" className="rounded-xl border bg-card px-4 py-3 text-xs text-muted-foreground">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <LoaderCircle aria-hidden="true" className="size-4 animate-spin text-primary motion-reduce:animate-none" />
             {working.testMode
               ? "Replaying the recorded run…"
               : working.mode === "agentic"
@@ -87,7 +91,7 @@ export function AskPanel({ initialMode = "classic", testMode = null }: { initial
             <ol className="mt-2 flex flex-col gap-1">
               {working.toolCalls.map((call, i) => (
                 <li key={i} className="grid grid-cols-[7.5rem_1fr_auto] gap-x-3">
-                  <span className="font-semibold text-ink">{call.name}</span>
+                  <span className="font-semibold text-foreground">{call.name}</span>
                   <span className="min-w-0 break-words">{call.summary}</span>
                   <span className="tabular-nums">{call.latency_ms} ms</span>
                 </li>
@@ -97,16 +101,23 @@ export function AskPanel({ initialMode = "classic", testMode = null }: { initial
         </section>
       )}
       {error && (
-        <p role="alert" className="rounded-lg border border-alert/30 bg-sheet px-4 py-3 text-sm text-alert">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>Couldn’t answer</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {exchanges.length === 0 && !working ? (
-        <p className="text-sm text-ink-muted">
-          Answers appear here, newest first, each with the moments it cites.
-        </p>
+        <Empty className="border py-10">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <MessageSquare />
+            </EmptyMedia>
+            <EmptyTitle>No answers yet</EmptyTitle>
+            <EmptyDescription>Answers appear here, newest first, each with the moments it cites.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ol className="flex flex-col gap-6">
+        <ol className="flex flex-col gap-4">
           {exchanges.map((exchange, i) => {
             const open = toggled[exchange.id] ?? i === 0;
             return (

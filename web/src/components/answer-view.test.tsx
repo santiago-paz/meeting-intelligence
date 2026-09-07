@@ -62,14 +62,19 @@ describe("AnswerView", () => {
     expect(screen.queryByRole("list", { name: "Cited moments" })).toBeNull();
   });
 
-  it("shows how the answer was made: tool calls, tokens and cost", () => {
+  it("shows how the answer was made once asked: tool calls, tokens and cost", () => {
     render(<AnswerView exchange={exchange()} />);
 
-    const details = screen.getByText("How it was answered").closest("details");
-    expect(details).not.toBeNull();
-    expect(within(details!).getByText("read_turns")).toBeInTheDocument();
-    expect(within(details!).getByText("M1 turns 0-1")).toBeInTheDocument();
-    expect(within(details!).getByText(/\$0\.0123/)).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "How it was answered" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("read_turns")).toBeNull();
+
+    fireEvent.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("read_turns")).toBeInTheDocument();
+    expect(screen.getByText("M1 turns 0-1")).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.0123/)).toBeInTheDocument();
   });
 });
 

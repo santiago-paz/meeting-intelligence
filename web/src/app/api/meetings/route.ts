@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api";
+import { apiUrl, listMeetings } from "@/lib/api";
 
 /** Forwards a transcript upload to the API. The browser never talks to the API directly. */
 export async function POST(request: Request) {
@@ -17,4 +17,13 @@ export async function POST(request: Request) {
     body = { detail: text || upstream.statusText };
   }
   return Response.json(body, { status: upstream.status });
+}
+
+/** The meeting list for the search in the header. Reads go through here too, so the browser never sees the API. */
+export async function GET() {
+  try {
+    return Response.json(await listMeetings());
+  } catch {
+    return Response.json({ detail: "Couldn’t reach the API. Is it running?" }, { status: 502 });
+  }
 }

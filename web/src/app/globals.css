@@ -1,87 +1,144 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /*
-  Tokens. One loud color, the highlighter, reserved for the cited moment and
-  for the mark. Everything else is ink on a cool white sheet, and the rail
-  down the left is solid ink.
+  Tokens. The app is dark only, after the console it takes its look from:
+  near-black neutral surfaces, each layer one step lighter than the one under
+  it, and a single green for whatever is active or cited. Speakers get their
+  own colors in speakers.ts, so the green never has to compete with them.
 */
-@theme {
-  --color-surface: #edeff2;
-  --color-sheet: #ffffff;
-  --color-ink: #14213d;
-  --color-ink-muted: #5b6478;
-  --color-rule: #d5d9e0;
-  --color-marker: #ffe45c;
-  --color-marker-ink: #6b4e00;
-  --color-alert: #9b2c2c;
+:root {
+  --background: #0e0f10;
+  --foreground: #f2f3f3;
+  --card: #161718;
+  --card-foreground: #f2f3f3;
+  --popover: #1a1b1d;
+  --popover-foreground: #f2f3f3;
+  --primary: #34c77b;
+  --primary-foreground: #06140c;
+  --secondary: #202223;
+  --secondary-foreground: #f2f3f3;
+  --muted: #1c1e1f;
+  --muted-foreground: #9aa0a5;
+  --accent: #232526;
+  --accent-foreground: #f2f3f3;
+  --destructive: #f26d6d;
+  --destructive-foreground: #f2f3f3;
+  --border: #262829;
+  --input: #2c2f30;
+  --ring: #34c77b;
+  --chart-1: #34c77b;
+  --chart-2: #8fbce6;
+  --chart-3: #d9b36a;
+  --chart-4: #b7a6e6;
+  --chart-5: #d8a0c5;
+  --radius: 0.75rem;
+  --sidebar: #0e0f10;
+  --sidebar-foreground: #c9cdd0;
+  --sidebar-primary: #34c77b;
+  --sidebar-primary-foreground: #06140c;
+  --sidebar-accent: #1b1d1e;
+  --sidebar-accent-foreground: #f2f3f3;
+  --sidebar-border: #262829;
+  --sidebar-ring: #34c77b;
+  /* The two derived tints: the header's cast, and the cited moment's fill. */
+  --header: color-mix(in oklab, var(--primary) 6%, var(--background));
+  --sidebar-active: color-mix(in oklab, var(--primary) 20%, var(--sidebar));
+  --marker: color-mix(in oklab, var(--primary) 22%, var(--card));
 }
 
-/*
-  Type roles. One grotesk for the interface, loaded with its optical sizes so
-  titles get its character and small labels stay tidy; a serif for the spoken
-  words. Figures are tabular wherever they line up in a column. No monospace
-  anywhere, not even for code, so the browser's default for it is overridden.
-*/
 @theme inline {
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-source-serif), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-header: var(--header);
+  --color-marker: var(--marker);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* A small uppercase label: field names, table heads, breadcrumbs, speakers. Color is set alongside. */
+/* A small uppercase label: section names, field names, table heads, speakers. Color is set alongside. */
 @utility eyebrow {
-  font-family: var(--font-display);
   font-size: 0.6875rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-html {
-  color-scheme: light;
-  scroll-padding-top: 4.5rem; /* keep anchored turns clear of the bar on small screens */
-  -webkit-tap-highlight-color: transparent;
-}
-
-@media (min-width: 64rem) {
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
   html {
-    scroll-padding-top: 1rem; /* the rail stands beside the content; nothing covers it */
+    @apply font-sans;
+    color-scheme: dark;
+    scroll-padding-top: 4.5rem; /* keep anchored turns clear of the sticky header */
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  a,
+  button,
+  input,
+  label,
+  textarea {
+    touch-action: manipulation;
   }
 }
 
-a,
-button,
-input,
-label,
-textarea {
-  touch-action: manipulation;
-}
-
-body {
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-family: var(--font-display);
-}
-
-code,
-kbd,
-samp,
-pre {
-  font-family: inherit;
-}
-
 /*
-  The signature: a turn addressed by the URL hash (#turn-12) gets a
-  highlighter stroke that sweeps in from the left. This is how a citation
-  will point at the exact moment it quotes. The stroke is a pseudo-element
-  scaled on the compositor, so long transcripts stay smooth.
+  The signature: a turn addressed by the URL hash (#turn-12), or a cited
+  moment whose chip was pressed, fills with the green from the left. This is
+  how a citation points at the exact moment it quotes. The fill is a
+  pseudo-element scaled on the compositor, so long transcripts stay smooth.
 
   Turns are deliberately not virtualized or content-visibility skipped:
   every #turn-N must exist in the DOM so citation links always resolve,
-  and a transcript is bounded
-  (an hour is a few hundred turns). If that ever changes, paginate by time
-  range rather than hide turns.
+  and a transcript is bounded (an hour is a few hundred turns). If that
+  ever changes, paginate by time range rather than hide turns.
 */
 .turn {
   position: relative;
@@ -94,7 +151,7 @@ pre {
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--color-marker) 55%, white);
+  background: var(--marker);
   transform: scaleX(0);
   transform-origin: left center;
 }
@@ -107,7 +164,7 @@ pre {
 
 .turn:target .timecode,
 .turn[data-cited="true"] .timecode {
-  color: var(--color-marker-ink);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -153,7 +210,6 @@ pre {
 .answer h2,
 .answer h3,
 .answer h4 {
-  font-family: var(--font-display);
   font-size: 1em;
   font-weight: 600;
 }
@@ -163,31 +219,15 @@ pre {
 }
 
 .answer blockquote {
-  border-left: 2px solid var(--color-rule);
+  border-left: 2px solid var(--border);
   padding-left: 0.75em;
-  color: var(--color-ink-muted);
+  color: var(--muted-foreground);
 }
 
 .answer code {
   border-radius: 0.25rem;
-  background: var(--color-surface);
+  background: var(--muted);
   padding: 0 0.3em;
-  font-size: 0.92em;
-}
-
-/* The wait reads as work: a soft pulse on the status line, none for reduced motion. */
-.working {
-  animation: working-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes working-pulse {
-  50% {
-    opacity: 0.55;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .working {
-    animation: none;
-  }
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }

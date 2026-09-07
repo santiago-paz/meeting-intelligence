@@ -18,7 +18,7 @@ export default async function AskPage(props: PageProps<"/ask">) {
   ]);
   const initialMode = mode === "agentic" ? "agentic" : "classic";
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader title="Ask the meetings" lede="Every claim in the answer points at the turn it comes from." />
       <AskPanel initialMode={initialMode} testMode={testMode} />
     </main>

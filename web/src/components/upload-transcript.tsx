@@ -1,21 +1,28 @@
 "use client";
 
+import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
+
 type Status = { kind: "idle" } | { kind: "uploading" } | { kind: "error"; message: string };
 
+/**
+ * The upload is one button: pressing it opens the file picker, and choosing
+ * a file sends it. The form around it is what a keyboard, or a test, submits.
+ */
 export function UploadTranscript() {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const uploading = status.kind === "uploading";
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function upload(file: File | null) {
+    if (uploading) return;
     if (!file) {
       setStatus({ kind: "error", message: "Choose a transcript file first." });
-      inputRef.current?.focus();
       return;
     }
     setStatus({ kind: "uploading" });
@@ -37,45 +44,36 @@ export function UploadTranscript() {
     router.push(`/meetings/${id}`);
   }
 
-  const uploading = status.kind === "uploading";
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void upload(inputRef.current?.files?.[0] ?? null);
+  }
+
   return (
-    <form
-      aria-label="Upload a transcript"
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-lg border border-rule bg-sheet p-4 sm:flex-row sm:items-end"
-    >
-      <div className="flex flex-1 flex-col gap-1.5">
-        <label htmlFor="transcript" className="eyebrow text-ink-muted">
-          Transcript file
-        </label>
-        <input
-          ref={inputRef}
-          id="transcript"
-          name="file"
-          type="file"
-          accept=".txt,text/plain"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          className="text-sm text-ink file:mr-3 file:rounded-md file:border file:border-rule file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink hover:file:bg-marker/40"
-        />
-        <p className="text-xs text-ink-muted">
-          A .txt with one line per turn, like{" "}
-          <code translate="no" className="rounded bg-surface px-1.5 py-0.5 text-[0.8rem] text-ink">
-            [00:12:04] Marco: Hola.
-          </code>
-        </p>
-      </div>
-      <button
-        type="submit"
-        disabled={uploading}
-        className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-sheet hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60"
-      >
+    <form aria-label="Upload a transcript" onSubmit={onSubmit} className="flex flex-col items-end gap-2">
+      <label htmlFor="transcript" className="sr-only">
+        Transcript file
+      </label>
+      <input
+        ref={inputRef}
+        id="transcript"
+        name="file"
+        type="file"
+        accept=".txt,text/plain"
+        tabIndex={-1}
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0] ?? null;
+          // Cleared so that picking the same file again, after a fix, still counts as a change.
+          event.currentTarget.value = "";
+          void upload(file);
+        }}
+      />
+      <Button type="button" variant="outline" disabled={uploading} onClick={() => inputRef.current?.click()}>
+        <Upload />
         {uploading ? "Uploading…" : "Upload transcript"}
-      </button>
-      {status.kind === "error" && (
-        <p role="alert" className="text-sm text-alert sm:basis-full">
-          {status.message}
-        </p>
-      )}
+      </Button>
+      {status.kind === "error" && <FieldError className="max-w-[18rem] text-right">{status.message}</FieldError>}
     </form>
   );
 }
