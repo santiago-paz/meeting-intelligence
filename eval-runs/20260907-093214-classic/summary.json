@@ -1,0 +1,25 @@
+{
+  "mode": "classic",
+  "judge_model": "claude-haiku-4-5",
+  "api_url": "http://localhost:8000",
+  "wall_seconds": 79.2,
+  "questions": 22,
+  "errors": 0,
+  "completeness": 0.9773,
+  "faithful_rate": 1.0,
+  "forbidden_rate": 0.0,
+  "retrieved_coverage": 0.9737,
+  "cited_coverage": 0.9737,
+  "refusal": {
+    "tp": 2,
+    "fp": 0,
+    "fn": 1,
+    "tn": 19,
+    "precision": 1.0,
+    "recall": 0.6666666666666666
+  },
+  "dropped_citations": 0,
+  "mean_latency_ms": 7516,
+  "total_cost_usd": 0.9837,
+  "judge_cost_usd": 0.046
+}

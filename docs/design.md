@@ -164,7 +164,7 @@ In order of value:
 
 ## Evaluation
 
-A golden set of 22 questions in `fixtures/golden.json`, written before the
+A golden set of 23 questions in `fixtures/golden.json`, written before the
 retriever. Each answerable question lists the turns that support it, with a
 verbatim quote that a test checks against the transcripts, plus the atomic
 facts a complete answer states and the propositions a correct answer must
@@ -172,8 +172,17 @@ never assert. Types: lookup, aggregation, temporal, speaker-scoped, an
 injection attempt spoken inside a meeting, a distractor, and unanswerable
 questions that must be refused. `eval.py` prints, per mode: key-fact
 completeness and faithfulness against cited turns (an LLM judge), coverage of
-the golden turns by what was fetched, refusal precision and recall, latency
-and cost per question.
+the golden turns by what was fetched and by what was cited, refusal precision
+and recall, latency and cost per question.
+
+The judge is Sonnet 5, never the model under test. Haiku was tried first and
+scored the same reference answer 80%, 100% and 40% across three runs; Sonnet
+gave identical verdicts on two runs of the known-answer probes. Before any
+run counts, `eval.py --check-judge` feeds the judge the reference answer, "I
+don't know", and an answer built from the forbidden claims, and fails if the
+verdicts are not what a working judge must produce. Faithfulness applies to
+answered questions only: a refusal makes no cited claim, and a refusal that
+invents things is caught by the forbidden-claim check instead.
 
 Unit tests cover the deterministic parts (parser, chunker, citation check).
 Storage and API tests run against the Postgres from Compose and are skipped
@@ -212,6 +221,11 @@ steps.
   about one extra hour and buy a measured comparison.
 - 2026-09-07. Plain SQL through psycopg with numbered migration files, no ORM.
   Storage tests hit the real database from Compose.
+- 2026-09-07. After the first eval run, one golden label changed: the CFO's
+  name is unknowable, but a cited "never named, mentioned here and here" beats
+  a bare refusal, so that question became a distractor and a truly
+  unanswerable one (cloud provider) took its place. Changing a key after
+  seeing results is dangerous; this one is disclosed for that reason.
 - 2026-09-07. Inline citation markers over a structured claims list: each
   citation sits next to the sentence it supports, the text streams as is,
   and validation stays in code. Classic mode ships without streaming; the

@@ -686,17 +686,44 @@
       ]
     },
     {
-      "id": "unanswerable-cfo-name",
-      "type": "unanswerable",
+      "id": "distractor-cfo-name",
+      "type": "distractor",
       "question": "What is the name of Northwind's CFO?",
-      "answer": "Northwind's CFO is mentioned several times but never named.",
+      "answer": "Northwind's CFO is never named. He is mentioned twice: Marco said he would call him himself about the invoice error (Sept 8), and on Sept 15 Diego reported the CFO had replied to Marco's note.",
       "key_facts": [
-        "the CFO is never named"
+        "the CFO is never named",
+        "Marco said he would call the CFO about the invoice error",
+        "the CFO replied to Marco's note"
+      ],
+      "expected_turns": [
+        {
+          "meeting": "2026-09-08-weekly-sync",
+          "turn": 20,
+          "quote": "I'll call their CFO myself"
+        },
+        {
+          "meeting": "2026-09-15-weekly-sync",
+          "turn": 9,
+          "quote": "the CFO replied to Marco's note"
+        }
+      ],
+      "expect_refusal": false,
+      "must_not_claim": [
+        "a name for the CFO"
+      ]
+    },
+    {
+      "id": "unanswerable-cloud-provider",
+      "type": "unanswerable",
+      "question": "Which cloud provider hosts production?",
+      "answer": "The meetings never mention a cloud provider.",
+      "key_facts": [
+        "the meetings do not mention which cloud provider hosts production"
       ],
       "expected_turns": [],
       "expect_refusal": true,
       "must_not_claim": [
-        "a name for the CFO"
+        "a named cloud provider"
       ]
     }
   ]
