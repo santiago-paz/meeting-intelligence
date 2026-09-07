@@ -328,3 +328,21 @@ async def test_rows_record_rounds_and_tool_calls_from_agentic_answers():
     row = await grade_one(_q(), FakeApi(response), FakeJudgeClient(ok), "m", "agentic", {})
 
     assert (row.rounds, row.tool_calls) == (2, 2)
+
+
+from evaluation.runner import load_rows
+
+
+def test_load_rows_treats_refused_as_the_marker_flag_for_rows_saved_before_the_judge_declined(tmp_path):
+    import json
+
+    old = _row(id="old", refused=True).model_dump()
+    del old["marker_refused"]  # saved before the field existed: refused was the API's [[none]] flag
+    new = _row(id="new", refused=True, marker_refused=False).model_dump()
+    path = tmp_path / "results.jsonl"
+    path.write_text(json.dumps(old) + "\n" + json.dumps(new) + "\n", encoding="utf-8")
+
+    rows = load_rows(path)
+
+    assert [r.marker_refused for r in rows] == [True, False]
+    assert [r.refused for r in rows] == [True, True]

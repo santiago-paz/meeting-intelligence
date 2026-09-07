@@ -218,6 +218,20 @@ async def check_judge(golden: list[GoldenQuestion], judge_client, judge_model: s
     return all_ok
 
 
+def load_rows(path: Path) -> list[Row]:
+    """Saved rows of a run. Rows written before the judge had a `declines` field carry
+    no `marker_refused`; their `refused` was the API's [[none]] flag, so it moves there."""
+    rows: list[Row] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        raw = json.loads(line)
+        if "marker_refused" not in raw:
+            raw["marker_refused"] = raw.get("refused", False)
+        rows.append(Row(**raw))
+    return rows
+
+
 async def regrade_rows(
     rows: list[Row], golden: list[GoldenQuestion], judge_client, judge_model: str,
     turns: dict[str, dict[int, dict]],
@@ -254,7 +268,7 @@ async def regrade_rows(
 async def regrade(
     run_dir: Path, golden: list[GoldenQuestion], *, api_url: str, judge_client, judge_model: str = JUDGE_MODEL,
 ) -> tuple[list[Row], Summary, Path]:
-    saved = [Row(**json.loads(line)) for line in (run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()]
+    saved = load_rows(run_dir / "results.jsonl")
     api = Api(api_url)
     try:
         turns = await api.turns_by_meeting()

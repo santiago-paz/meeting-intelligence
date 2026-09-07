@@ -157,15 +157,26 @@ the UI so the wait reads as work. The loop is hand-written rather than the
 SDK's tool runner so the round cap, the per-call record and the streamed
 events live in one place and run against a scripted client in tests.
 
-Measured on the same seed as classic (two runs each), agentic mode matched
-classic on completeness (94 to 96% against 94 to 95%) and on coverage, fixed
-the aggregation question classic kept missing (Diego's commitments, 0.89 and
-1.00 against 0.78), cost about the same in dollars because the table of
-contents is served from the prompt cache, took about half again as long
-(10.9 s against 7.3 s), and cited more sparsely: the model read a range and
-cited the neighbouring turn, which the faithfulness check flags (60 to 76%
-against 89 to 95%). A prompt rule to cite every turn a sentence draws on is
-in place and unmeasured until the next run.
+Measured on the same seed as classic, two runs per variant and one judge
+for all of them, agentic mode matched classic on completeness (94 to 96%
+against 94%) and on coverage, fixed the aggregation question classic kept
+missing (Diego's commitments, 1.00 on both runs with the current prompt
+against 0.78), cost 5 to 15% more in dollars because the table of contents is
+served from the prompt cache, and took about half again as long (11 s against
+7.3 s). Its first prompt cited sparsely: the model read a range and cited the
+neighbouring turn, which the faithfulness check flags (59 and 72% against 82
+and 89% for classic). A rule to cite every turn a sentence draws on, with the
+date and the reason named as the usual stragglers, took faithfulness to 88 and
+89% on two runs, above the judge's own drift (see Evaluation). Completeness
+moved to 90 and 93%, and the gap sits on one question in both runs, the tasks
+raised without an owner. In one run the agent read the retro turns where the
+task came up and still left it out; in the other it never opened the retro.
+The table of contents already showed that task with the owner it got later,
+so the agent had no cue that it started unowned. That is a reasoning miss,
+and two runs cannot say whether the rule caused it. A refusal in this mode
+usually cites the turns that show what the meetings do cover, so the API's
+`[[none]]` marker fired on one answer in two runs; the eval reads refusals
+through the judge for that reason.
 
 Both modes exist because the comparison is the interesting result. The eval
 runs the same golden set in both modes and prints one table. Classic should win
@@ -215,6 +226,15 @@ often cites the turns that show what the meetings do cover; the API's
 `[[none]]` marker stays as the deterministic flag the UI uses. A saved run
 can be re-judged without asking the API again (`eval.py --regrade`), so a
 judge change costs cents rather than dollars.
+
+Re-judging the same answers is also how the judge's own drift was measured.
+Across four regrades it flipped one to four faithfulness verdicts out of
+seventeen or eighteen answered questions, two net at most, so a faithfulness
+gap under about twelve points between two runs is noise. The judge also reads
+a supported negative answer ("no raise was approved; the only mention is a
+joke") as a refusal, which shows up as one or two false positives in refusal
+precision on every run, on the injection question and sometimes on the
+Android distractor; both answers score complete.
 
 Unit tests cover the deterministic parts (parser, chunker, citation check).
 Storage and API tests run against the Postgres from Compose and are skipped
@@ -283,3 +303,12 @@ steps.
   meetings, and a documented swap path. Model-backed services are injected as
   dependencies so the test suite runs offline against fakes; the embedder loads
   on first use so tests never pull the model.
+- 2026-09-07. The agentic prompt tells the model to cite every turn a
+  sentence draws on, with the date and the reason named as the usual
+  stragglers. Two runs against two regraded runs of the earlier prompt:
+  faithfulness 88 and 89% against 59 and 72%, completeness 90 and 93% against
+  94 and 96%, with the completeness gap on one question. The rule stays, and
+  that question is the next thing to look at, with a third run before any
+  prompt change. The earlier runs were re-judged with the current judge so
+  that no number compares across judge versions; the regraded copies sit
+  next to the originals in `eval-runs/`.

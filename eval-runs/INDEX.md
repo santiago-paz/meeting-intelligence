@@ -21,11 +21,19 @@ runs each.
 | 104318-classic-index | 2 | classic + index | Second run; one judge error, since fixed. |
 | 105800-agentic | 2 | agentic | First agentic run; judge without the `declines` field. |
 | 110145-agentic | 2 | agentic | Second agentic run, same judge. |
+| 125811-agentic | 2 | agentic | Citing rule in the prompt (cite every turn a sentence draws on); current judge. |
+| 130035-agentic | 2 | agentic | Second run with the citing rule. |
+| `*-regraded` | | | The run they are named after, re-judged with the current judge. Compare these, never the originals, with 125811 and later. |
 
 Seed 1 and seed 2 are the same five transcripts ingested twice. Re-ingesting
 regenerates the context headers, which changes what retrieval returns; that
 is why the injection question is answered on seed 1 and refused on seed 2.
 
-Runs before 110145 were judged without the `declines` field, so their refusal
-column follows the API's `[[none]]` marker. Re-judge them with
-`api/eval.py --regrade <run>` for the semantic rule; the answers are kept.
+Runs up to and including 110145 were judged before the judge had the
+`declines` field: their refusal column follows the API's `[[none]]` marker and
+their faithfulness counts refusals as answers. The four `-regraded`
+directories hold the same answers re-judged with the current judge
+(`api/eval.py --regrade <run>`); answers, citations, latency and cost are
+copied and only the verdicts change. Re-judging identical answers flipped one
+to four faithfulness verdicts per run out of seventeen or eighteen, so a
+faithfulness gap under about twelve points is noise.
