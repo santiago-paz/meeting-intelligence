@@ -1,0 +1,32 @@
+Pricing Page Design Review
+Date: 2026-09-22
+Attendees: Marco, Ana, Priya
+
+[00:00:06] Ana: Priya, thanks for making time. This is the pricing page, everything except the refund copy, which legal sends tomorrow.
+[00:00:15] Priya: I read the brief. Can I start with the thing that worried me? Three tiers is right, but the middle one doesn't look like the one you want people to pick. The highlight is too quiet.
+[00:00:30] Marco: We do want them to pick the middle one. That's most of the revenue.
+[00:00:35] Priya: Then it needs to be obvious. A stronger border, the button filled instead of outlined, and pull it up a few pixels so it breaks the line. Standard, but it works because it's standard.
+[00:00:49] Ana: I can do that. I avoided it because it felt salesy.
+[00:00:53] Priya: It is salesy. Pricing pages are allowed to be.
+[00:00:58] Marco: Do it. Second thing, the annual discount. We show twenty percent. Finance wants fifteen.
+[00:01:06] Ana: Since when?
+[00:01:08] Marco: Since Friday. Twenty was a number I made up two years ago, and apparently it costs more than it brings in.
+[00:01:17] Priya: From a design point of view the number doesn't matter. What matters is that the toggle shows the saving in currency, not only in percent. "Save 96 dollars a year" lands harder than "15 percent".
+[00:01:33] Ana: Both, then. Percent on the toggle, the amount under each price.
+[00:01:38] Marco: Both. And the number is fifteen. That's a decision, I'll take the complaints.
+[00:01:44] Ana: Fine. I'll update the mockups with the new discount and the middle tier treatment by Thursday.
+[00:01:51] Priya: I'll send you the icon set for the feature list by Wednesday. The current ones are from three different libraries.
+[00:01:59] Ana: I noticed. Thank you.
+[00:02:02] Marco: What about the comparison table? Ana moved it below the fold.
+[00:02:07] Priya: Keep it below. Nobody reads it before they've picked a tier. But add a link from each tier that jumps to its column, so the people who do want details get there in one click.
+[00:02:21] Ana: Easy. Anchors.
+[00:02:23] Marco: One question I keep getting from sales. Should there be an enterprise tier with "contact us"?
+[00:02:31] Priya: Do you sell enterprise?
+[00:02:33] Marco: Two accounts. Northwind is one.
+[00:02:36] Priya: Then not a tier. A single line under the table: "Need more than fifty seats? Talk to us." A fourth tier makes the three look smaller.
+[00:02:48] Marco: Agreed. One line, no fourth tier.
+[00:02:52] Ana: Adding it. That's the whole list from my side.
+[00:02:56] Priya: One last thing. The page has no visible price for the free tier, it just says "Free". Put "0 dollars" in the same position as the other prices. It keeps the rhythm, and people scan for numbers.
+[00:03:10] Ana: Got it.
+[00:03:12] Marco: Good session. Ana, mockups Thursday. Priya, icons Wednesday. Copy from legal tomorrow, and we're still on for the fifteenth.
+[00:03:22] Ana: Still on for the fifteenth.

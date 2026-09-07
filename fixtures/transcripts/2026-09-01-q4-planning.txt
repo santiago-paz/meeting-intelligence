@@ -1,0 +1,37 @@
+Q4 Planning
+Date: 2026-09-01
+Attendees: Marco, Ana, Sofía, Diego
+
+[00:00:04] Marco: Okay, recording is on. Q4 planning. We have four things on the list: the pricing page redesign, checkout abandonment, SOC 2, and the mobile app question. Let's take them in that order.
+[00:00:21] Ana: Can we do pricing first? I have the most context and I need to leave at half past.
+[00:00:27] Marco: Sure. Where are we?
+[00:00:31] Ana: The mockups are done. Three tiers instead of the current five, an annual billing toggle, and the comparison table moves below the fold. The copy is the open part. Carla from legal still has to sign off on the refund wording.
+[00:00:52] Marco: How long do you need to build it once the copy is approved?
+[00:00:57] Ana: Two weeks if nothing else lands on my plate. I could have it live by the end of the month.
+[00:01:06] Sofía: End of September is fine for me. I'd rather launch pricing before we start the checkout work, otherwise I can't tell which change moved the numbers.
+[00:01:19] Marco: Agreed. Then that's decided: the pricing page redesign ships in Q4, Ana leads it, and the target is end of September.
+[00:01:31] Ana: Target, not promise. If legal takes three weeks on the copy, it moves.
+[00:01:36] Marco: Understood. Second item. Sofía, checkout abandonment.
+[00:01:43] Sofía: We lose about a third of people between picking a plan and confirming payment. I don't know where yet. The funnel events aren't granular enough to say which step.
+[00:01:58] Diego: The address form is my guess. We ask for a full billing address even for card payments, and Stripe doesn't need it.
+[00:02:09] Sofía: Could be. But I want the data before we rip anything out.
+[00:02:14] Marco: Who owns this?
+[00:02:17] Sofía: Honestly, someone should look at it properly, with instrumentation, not guesses. I don't have the bandwidth this month with the pricing analysis.
+[00:02:29] Diego: I can add the funnel events, that's a day of work. The analysis I can't do.
+[00:02:36] Marco: Okay, let's leave it on the list without an owner for now and come back to it next week. Diego, add the events anyway.
+[00:02:45] Diego: Will do. By Friday.
+[00:02:48] Marco: Third, SOC 2. Two customers asked for it in August, one of them Northwind, which is our biggest account.
+[00:03:01] Diego: The controls themselves we mostly have. The work is the evidence collection and the audit. We need a vendor platform for that.
+[00:03:12] Marco: I'll get quotes from two or three vendors and bring them to the retro at the end of the month. Don't let me forget.
+[00:03:21] Ana: Vanta and Drata are the two everyone mentions.
+[00:03:25] Marco: Those two, then. Last item, the mobile app. Sofía, you raised it.
+[00:03:33] Sofía: Support keeps getting asked. But I looked at the numbers and only eight percent of sessions are on a phone, and most of those are people checking an invoice status, which the responsive site already does.
+[00:03:50] Ana: And it would eat the whole quarter for two people.
+[00:03:54] Marco: Then we're not doing it. Decision: no mobile app in Q4. We revisit in January if the mobile share changes.
+[00:04:05] Sofía: I'll put a note in the support macro so the team stops promising it.
+[00:04:10] Marco: Good. Anything else?
+[00:04:13] Diego: One thing. The staging database is on the old Postgres version and the upgrade is overdue. Not urgent, but I don't want it to bite us during the pricing launch.
+[00:04:26] Marco: Can you do it before the launch?
+[00:04:29] Diego: If I do it next week, yes.
+[00:04:32] Marco: Do it next week. Okay, that's everything. Ana, go catch your train.
+[00:04:38] Ana: Thanks. Sending the mockup link to the channel now.

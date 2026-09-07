@@ -1,0 +1,38 @@
+Weekly Sync
+Date: 2026-09-08
+Attendees: Marco, Ana, Sofía, Diego
+
+[00:00:03] Marco: Morning. Quick round, then the Northwind thing. Ana, pricing.
+[00:00:10] Ana: Bad news first. Legal came back on Friday and they want the refund section rewritten, not tweaked. Carla wants a lawyer to draft it, and their earliest slot is the twenty-third.
+[00:00:26] Marco: So end of September is gone.
+[00:00:29] Ana: It's gone. If I get the copy on the twenty-third, I can be live around the fifteenth of October. I don't want to build the page twice.
+[00:00:40] Sofía: That pushes the checkout work too, if we're serious about not overlapping them.
+[00:00:46] Marco: Let's not overlap them. New target for pricing is October fifteenth. I'll tell the board it slipped two weeks and why.
+[00:00:56] Ana: Thanks. Everything else on the page is ready. It's literally the one section.
+[00:01:02] Marco: Diego, staging?
+[00:01:05] Diego: The Postgres upgrade is done on staging. Went fine. I'll do production the week after pricing launches, not before.
+[00:01:14] Marco: Good call. Funnel events?
+[00:01:17] Diego: Shipped Thursday. Sofía has had data since Friday.
+[00:01:21] Sofía: I do, and it's early, but Diego was right. The biggest drop is at the billing address step. Twenty-eight percent of the people who pick a plan leave on that screen.
+[00:01:35] Diego: Told you.
+[00:01:37] Sofía: You did. I want one more week of data before we decide anything, but I'm happy to own the checkout work now that I can see it. The pricing analysis is mostly done.
+[00:01:49] Marco: Then it has an owner. Sofía owns checkout abandonment. What's the next step?
+[00:01:55] Sofía: A proposal by next Monday with the data and a recommendation. Probably remove the address step for card payments, but let me confirm.
+[00:02:05] Marco: Okay. Now Northwind. They emailed me Sunday night. Their invoices exported with the wrong tax rate for their Dutch entity, and their finance team caught it after sending some to clients.
+[00:02:22] Diego: I saw the ticket. It's the rounding change from August. It only affects accounts with multiple tax jurisdictions, which is basically them.
+[00:02:33] Marco: How many invoices?
+[00:02:35] Diego: Forty-one over two weeks. I can fix the calculation today. Regenerating the PDFs is the annoying part, because they've been sent.
+[00:02:47] Marco: Fix it today, and write them a note with the list of affected invoice numbers so they can send corrections. I'll call their CFO myself.
+[00:02:58] Diego: On it. Fix today, list by tomorrow morning.
+[00:03:03] Ana: Should we credit them something?
+[00:03:07] Marco: Probably. I'll decide after the call. Don't promise anything in the note.
+[00:03:14] Diego: Noted.
+[00:03:16] Marco: One more thing and then we're done. I want to say something about the roadmap, because three different people asked me for three different versions of it this week. Here's where we are. Q4 is pricing, then checkout, then SOC 2 groundwork, in that order, and nothing gets added unless something gets removed.
+The mobile app is not happening. I know support keeps asking, and the answer is January at the earliest. The reason the order matters is that each of these changes the numbers the next one depends on. If we launch checkout changes in the same week as pricing, we won't know which one moved conversion, and we'll spend November arguing about it instead of shipping.
+So: one thing at a time, measured, then the next. If anyone hears a different version of this from me, tell me, because it means I was wrong in that conversation, not in this one.
+[00:04:18] Sofía: Can you put that in writing? I'll link it from the support macro.
+[00:04:22] Marco: I'll post it in the channel after this.
+[00:04:26] Ana: Last thing from me. Priya is available from the twenty-second if we want a design review of the pricing page before it goes live.
+[00:04:36] Marco: Book her. Design review on the twenty-second.
+[00:04:40] Ana: Booking it.
+[00:04:42] Marco: Done. Thanks, all.

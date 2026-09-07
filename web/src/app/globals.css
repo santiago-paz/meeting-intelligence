@@ -45,14 +45,17 @@ body {
   The signature: a turn addressed by the URL hash (#turn-12) gets a
   highlighter stroke that sweeps in from the left. This is how a citation
   will point at the exact moment it quotes. The stroke is a pseudo-element
-  scaled on the compositor, so long transcripts stay smooth, and turns
-  outside the viewport skip layout entirely.
+  scaled on the compositor, so long transcripts stay smooth.
+
+  Turns are deliberately not virtualized or content-visibility skipped:
+  every #turn-N must exist in the DOM so citation links always resolve,
+  and a transcript is bounded
+  (an hour is a few hundred turns). If that ever changes, paginate by time
+  range rather than hide turns.
 */
 .turn {
   position: relative;
   isolation: isolate;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 4.5rem;
 }
 
 .turn::before {

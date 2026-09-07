@@ -1,0 +1,34 @@
+September Retro
+Date: 2026-09-29
+Attendees: Marco, Ana, Sofía, Diego
+
+[00:00:04] Marco: Retro. Same format as always. What went well, what didn't, what we change. Then the SOC 2 quotes, which I promised for today. Sofía, start us off.
+[00:00:17] Sofía: Went well: the checkout data. Two weeks from "we don't know" to a decision with numbers. That's how I want everything to go.
+[00:00:28] Diego: Went well: Northwind. Bad week, but we fixed it in a day and they stayed. The CFO's reply was genuinely nice.
+[00:00:37] Ana: Went well, I guess, the design review. Priya found three things in an hour that I'd been staring at for a month.
+[00:00:46] Marco: Didn't go well?
+[00:00:48] Ana: Legal. Not their fault, they were clear about the timeline. But I planned the whole month around a date I didn't control, and I shouldn't have.
+[00:01:00] Diego: Didn't go well: I still don't have a written deploy process. I did the staging upgrade from memory, and if I get hit by a bus, nobody deploys.
+[00:01:12] Sofía: Somebody should really write that down.
+[00:01:15] Diego: Yes. Somebody.
+[00:01:17] Marco: We'll come back to it. Anything else?
+[00:01:20] Sofía: Meetings. We had eleven hours of meetings last week. Wednesday had five.
+[00:01:27] Marco: What do you propose?
+[00:01:29] Sofía: No meetings on Wednesdays. At all. If it can't wait, it's a message.
+[00:01:35] Ana: I'd take that.
+[00:01:37] Diego: Same.
+[00:01:38] Marco: Then it's decided. No meetings on Wednesdays, starting next week. I'll clear the recurring ones.
+[00:01:46] Marco: Now SOC 2. Three quotes: Vanta, Drata, and Secureframe. They're all within twenty percent of each other on price. Drata has the best Postgres and GitHub integrations, which is most of our evidence. Vanta has a nicer dashboard. Secureframe was the cheapest, but their auditor network is smaller.
+[00:02:10] Diego: Integrations matter more than the dashboard. I'm the one who has to feed it.
+[00:02:15] Sofía: Drata, then.
+[00:02:17] Marco: Drata. Decision made. I'll sign in the first week of October, and Diego kicks off the integrations after the checkout change ships, so late October.
+[00:02:29] Diego: Late October is fine.
+[00:02:31] Ana: Does the audit itself happen this year?
+[00:02:34] Marco: No. Evidence collection takes three months minimum. The audit is Q1. I'll tell Northwind that timeline this week.
+[00:02:43] Marco: Okay, I want to say one longer thing and then we close. This quarter we planned four things, and we're going to ship two of them on time, one late, and one not at all, and I think that's the right outcome, not a failure. Pricing slipped because of something outside our control, and instead of building it twice we waited, which was the correct call even though it cost us two weeks. Checkout is going to ship late by the original plan, but it ships with data behind it, which is worth more than the two weeks. The mobile app we cut on purpose, and I've had zero regrets, and every time support asks I get more confident, because the people asking want a feature the responsive site already has. And SOC 2 we're starting late because I sat on the quotes for a month, which is on me, and the fix is that I don't own procurement things any more, because I'm clearly bad at them. What I want us to keep from this quarter is the pattern: decide, measure, then decide again. What I want us to stop doing is planning around dates other people control. That's it.
+[00:04:12] Ana: Can you put that in the channel too?
+[00:04:15] Marco: Yes. Both speeches in the channel by tonight.
+[00:04:19] Sofía: The deploy process. We said we'd come back to it.
+[00:04:23] Marco: Right. Diego, you're the only one who knows it, so you write it, but not this week.
+[00:04:30] Diego: After the checkout change. Mid October.
+[00:04:33] Marco: Mid October. Written down. Thanks, everyone.
