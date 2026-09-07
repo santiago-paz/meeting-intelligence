@@ -14,6 +14,7 @@ from app.models import (
     Decision,
     IndexRow,
     MeetingDetail,
+    MeetingOutline,
     MeetingSummary,
     Trace,
     Turn,
@@ -147,8 +148,8 @@ async def _insert_trace(conn: AsyncConnection, trace: Trace) -> UUID:
     cur = await conn.execute(
         "INSERT INTO traces (mode, question, model, answer, refused, citations,"
         " dropped_citations, retrieved, input_tokens, output_tokens, cache_read_tokens,"
-        " cache_write_tokens, cost_usd, latency_ms, index_rows)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        " cache_write_tokens, cost_usd, latency_ms, index_rows, tool_calls, rounds)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             trace.mode, trace.question, trace.model, trace.answer, trace.refused,
             Jsonb([c.model_dump(mode="json") for c in trace.citations]),
@@ -156,6 +157,7 @@ async def _insert_trace(conn: AsyncConnection, trace: Trace) -> UUID:
             Jsonb([r.model_dump(mode="json") for r in trace.retrieved]),
             trace.input_tokens, trace.output_tokens, trace.cache_read_tokens,
             trace.cache_write_tokens, trace.cost_usd, trace.latency_ms, trace.index_rows,
+            Jsonb([c.model_dump(mode="json") for c in trace.tool_calls]), trace.rounds,
         ),
     )
     return (await cur.fetchone())[0]
@@ -211,3 +213,18 @@ async def get_turns_for_meetings(
             meeting_id = row.pop("meeting_id")
             result.setdefault(meeting_id, {})[row["idx"]] = Turn(**row)
     return result
+
+
+async def list_meeting_outlines(conn: AsyncConnection) -> list[MeetingOutline]:
+    """Each meeting as the agent first sees it: date, speakers, size, chunk headers."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "SELECT m.id AS meeting_id, m.title, m.meeting_date,"
+            " (SELECT count(*) FROM turns t WHERE t.meeting_id = m.id) AS turn_count,"
+            " (SELECT coalesce(array_agg(DISTINCT t.speaker ORDER BY t.speaker), '{}')"
+            "  FROM turns t WHERE t.meeting_id = m.id) AS speakers,"
+            " (SELECT coalesce(array_agg(c.context_header ORDER BY c.idx), '{}')"
+            "  FROM chunks c WHERE c.meeting_id = m.id AND c.context_header IS NOT NULL) AS headers"
+            " FROM meetings m ORDER BY m.meeting_date NULLS LAST, m.title"
+        )
+        return [MeetingOutline(**row) for row in await cur.fetchall()]

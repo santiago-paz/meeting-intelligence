@@ -4,7 +4,7 @@ import pytest
 
 from datetime import date
 
-from app.models import ActionItem, Chunk, Decision, Trace, Turn
+from app.models import ActionItem, Chunk, Decision, ToolCall, Trace, Turn
 from app.repository import (
     get_meeting,
     get_turns,
@@ -13,6 +13,7 @@ from app.repository import (
     insert_meeting,
     insert_trace,
     list_index,
+    list_meeting_outlines,
     list_meetings,
     search_chunks,
 )
@@ -215,3 +216,22 @@ async def test_turns_for_meetings_come_back_keyed_by_meeting_and_index(migrated_
     assert set(turns) == {a, b}
     assert turns[a][1].speaker == "Ana"
     assert list(turns[b]) == [0]
+
+
+async def test_outlines_carry_date_speakers_turn_count_and_headers_in_order(migrated_conn):
+    later = await insert_meeting(
+        migrated_conn, title="Later", source_filename="l.txt", turns=TURNS,
+        chunks=[_chunk(1, "b", header="Second half."), _chunk(0, "a", header="First half.")],
+        meeting_date=date(2026, 9, 8),
+    )
+    earlier = await insert_meeting(
+        migrated_conn, title="Earlier", source_filename="e.txt", turns=TURNS[:1], chunks=[], meeting_date=date(2026, 9, 1),
+    )
+
+    outlines = await list_meeting_outlines(migrated_conn)
+
+    assert [o.meeting_id for o in outlines] == [earlier, later]
+    assert outlines[1].speakers == ["Ana", "Marco"]
+    assert outlines[1].turn_count == 2
+    assert outlines[1].headers == ["First half.", "Second half."]
+    assert outlines[0].headers == [] and outlines[0].speakers == ["Marco"]

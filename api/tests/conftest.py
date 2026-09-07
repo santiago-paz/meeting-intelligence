@@ -67,8 +67,8 @@ def _client(test_db_url: str, monkeypatch, *, with_llm: bool):
         conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
     from fastapi.testclient import TestClient
 
-    from app.main import app, get_answerer, get_embedder, get_enricher, get_extractor
-    from tests.fakes import FakeAnswerer, FakeEmbedder, FakeEnricher, FakeExtractor
+    from app.main import app, get_agent, get_answerer, get_embedder, get_enricher, get_extractor
+    from tests.fakes import FakeAgent, FakeAnswerer, FakeEmbedder, FakeEnricher, FakeExtractor
 
     app.dependency_overrides[get_embedder] = FakeEmbedder
     if with_llm:
@@ -76,6 +76,7 @@ def _client(test_db_url: str, monkeypatch, *, with_llm: bool):
         app.dependency_overrides[get_extractor] = FakeExtractor
         # Tests that care about the answer text replace this per test.
         app.dependency_overrides[get_answerer] = lambda: FakeAnswerer("Nothing here. [[none]]")
+        app.dependency_overrides[get_agent] = lambda: FakeAgent("Nothing here. [[none]]")
     try:
         with TestClient(app) as test_client:
             yield test_client

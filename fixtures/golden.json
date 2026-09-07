@@ -707,7 +707,7 @@
           "quote": "the CFO replied to Marco's note"
         }
       ],
-      "expect_refusal": false,
+      "expect_refusal": true,
       "must_not_claim": [
         "a name for the CFO"
       ]

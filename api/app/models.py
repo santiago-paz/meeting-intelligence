@@ -86,7 +86,28 @@ class RetrievedChunk(BaseModel):
     meeting_title: str
     turn_start: int
     turn_end: int
-    similarity: float
+    similarity: float | None  # None when fetched by an exact read rather than a search
+
+
+class ToolCall(BaseModel):
+    """One tool invocation in an agentic answer, as recorded in the trace."""
+
+    round: int
+    name: str
+    input: dict
+    summary: str
+    latency_ms: int
+
+
+class MeetingOutline(BaseModel):
+    """What the agent sees about a meeting before reading any of it."""
+
+    meeting_id: UUID
+    title: str
+    meeting_date: date | None
+    turn_count: int
+    speakers: list[str]
+    headers: list[str]
 
 
 class Trace(BaseModel):
@@ -107,6 +128,8 @@ class Trace(BaseModel):
     cost_usd: float
     latency_ms: int
     index_rows: int = 0
+    tool_calls: list[ToolCall] = []
+    rounds: int = 0
 
 
 class AskResponse(Trace):
@@ -115,7 +138,7 @@ class AskResponse(Trace):
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
-    mode: Literal["classic"] = "classic"
+    mode: Literal["classic", "agentic"] = "classic"
     meeting_id: UUID | None = None
     limit: int = Field(default=8, ge=1, le=20)
     # Whether the extracted decisions and action items go into the prompt.
@@ -155,3 +178,4 @@ class IndexRow(BaseModel):
     due_text: str | None
     due_date: date | None
     status: str | None
+

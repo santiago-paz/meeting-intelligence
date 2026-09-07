@@ -97,18 +97,20 @@ async def grade_one(
                 return _error_row(q, f"judge: {type(exc).__name__}: {exc}")
     return Row(
         id=q.id, type=q.type, status="ok", error=None,
-        refused=response["refused"], expect_refusal=q.expect_refusal,
+        # Refusal is the judge's semantic call; the API's marker is kept beside it.
+        refused=verdict.declines, marker_refused=response["refused"], expect_refusal=q.expect_refusal,
         retrieved_coverage=retrieved_cov, cited_coverage=cited_cov,
         completeness=verdict.completeness,
         # Faithfulness is about cited claims; a refusal makes none. The
         # forbidden-claim check still catches a refusal that invents things.
-        faithful=None if response["refused"] else verdict.faithful,
+        faithful=None if verdict.declines else verdict.faithful,
         forbidden_asserted=any(verdict.forbidden_asserted) if q.must_not_claim else False,
         dropped_citations=response["dropped_citations"], latency_ms=response["latency_ms"],
         cost_usd=response["cost_usd"], input_tokens=response["input_tokens"],
         output_tokens=response["output_tokens"], judge_cost_usd=verdict.cost_usd,
         answer=response["answer"], citations=response["citations"],
         unsupported_claims=verdict.unsupported_claims, facts_present=verdict.facts_present,
+        rounds=response.get("rounds", 0), tool_calls=len(response.get("tool_calls", [])),
     )
 
 
@@ -214,3 +216,59 @@ async def check_judge(golden: list[GoldenQuestion], judge_client, judge_model: s
                 f" {_flag(verdict.faithful)}  {'PASS' if ok else 'FAIL'}: {expectation}"
             )
     return all_ok
+
+
+async def regrade_rows(
+    rows: list[Row], golden: list[GoldenQuestion], judge_client, judge_model: str,
+    turns: dict[str, dict[int, dict]],
+) -> list[Row]:
+    """Re-judge saved answers. The API facts (answer, citations, cost, latency) stay as recorded."""
+    by_id = {q.id: q for q in golden}
+    out: list[Row] = []
+    for row in rows:
+        q = by_id.get(row.id)
+        if row.status != "ok" or q is None:
+            out.append(row)
+            continue
+        try:
+            verdict = await judge(
+                judge_client, question=q.question, answer=row.answer,
+                cited_lines=cited_lines(row.citations, turns), key_facts=q.key_facts,
+                must_not_claim=q.must_not_claim, model=judge_model,
+            )
+        except Exception as exc:  # noqa: BLE001 - an unjudged row is an error row, never a crash
+            out.append(row.model_copy(update={"status": "error", "error": f"judge: {type(exc).__name__}: {exc}"}))
+            continue
+        retrieved_cov, cited_cov = row.retrieved_coverage, row.cited_coverage
+        out.append(row.model_copy(update={
+            "refused": verdict.declines, "expect_refusal": q.expect_refusal,
+            "completeness": verdict.completeness,
+            "faithful": None if verdict.declines else verdict.faithful,
+            "forbidden_asserted": any(verdict.forbidden_asserted) if q.must_not_claim else False,
+            "unsupported_claims": verdict.unsupported_claims, "facts_present": verdict.facts_present,
+            "judge_cost_usd": verdict.cost_usd, "retrieved_coverage": retrieved_cov, "cited_coverage": cited_cov,
+        }))
+    return out
+
+
+async def regrade(
+    run_dir: Path, golden: list[GoldenQuestion], *, api_url: str, judge_client, judge_model: str = JUDGE_MODEL,
+) -> tuple[list[Row], Summary, Path]:
+    saved = [Row(**json.loads(line)) for line in (run_dir / "results.jsonl").read_text(encoding="utf-8").splitlines()]
+    api = Api(api_url)
+    try:
+        turns = await api.turns_by_meeting()
+    finally:
+        await api.close()
+    rows = await regrade_rows(saved, golden, judge_client, judge_model, turns)
+    out_dir = run_dir.parent / f"{run_dir.name}-regraded"
+    out_dir.mkdir(exist_ok=True)
+    (out_dir / "results.jsonl").write_text("".join(r.model_dump_json() + "\n" for r in rows), encoding="utf-8")
+    summary = summarize(rows)
+    previous = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    (out_dir / "summary.json").write_text(
+        json.dumps({**{k: previous.get(k) for k in ("mode", "use_index", "api_url")},
+                    "regraded_from": run_dir.name, "judge_model": judge_model, **summary.model_dump()}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return rows, summary, out_dir

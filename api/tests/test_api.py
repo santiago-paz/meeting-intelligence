@@ -253,3 +253,56 @@ def test_classic_mode_leaves_the_index_out_by_default(client):
 
     assert "<index>" not in fake.prompts[0]
     assert body["index_rows"] == 0
+
+
+def _agent(text: str, actions=()):
+    from app.main import app, get_agent
+    from tests.fakes import FakeAgent
+
+    agent = FakeAgent(text, actions)
+    app.dependency_overrides[get_agent] = lambda: agent
+    return agent
+
+
+def test_agentic_mode_cites_only_turns_its_tools_read(client):
+    _upload(client)
+    agent = _agent("Marco opened. [[M1#0]] Ana agreed. [[M1#1]]",
+                   actions=[("read_turns", {"meeting_ref": "M1", "start": 0, "end": 0})])
+
+    body = client.post("/ask", json={"question": "Who spoke?", "mode": "agentic"}).json()
+
+    assert body["mode"] == "agentic"
+    assert [c["turn"] for c in body["citations"]] == [0], "turn 1 was never read, so it cannot be cited"
+    assert body["dropped_citations"] == 1
+    assert body["rounds"] == 1
+    assert body["tool_calls"][0]["name"] == "read_turns" and body["tool_calls"][0]["summary"] == "M1 turns 0-0"
+    assert [(r["ref"], r["turn_start"], r["turn_end"], r["similarity"]) for r in body["retrieved"]] == [("M1", 0, 0, None)]
+    index_block = agent.systems[0][1]
+    assert "<index>" in index_block["text"] and index_block["cache_control"] == {"type": "ephemeral"}
+
+
+def test_agentic_search_tool_returns_excerpts_the_model_can_cite(client):
+    _upload(client)
+    _agent("Ana agreed. [[M1#1]]", actions=[("search_transcripts", {"query": "agree", "meeting_ref": None})])
+
+    body = client.post("/ask", json={"question": "Did Ana agree?", "mode": "agentic"}).json()
+
+    assert [c["turn"] for c in body["citations"]] == [1]
+    assert body["tool_calls"][0]["summary"] == "1 excerpt(s) for 'agree'"
+    assert body["retrieved"][0]["similarity"] is not None
+
+
+def test_agentic_tool_errors_are_recorded_and_the_answer_still_comes_back(client):
+    _upload(client)
+    _agent("Nothing there. [[none]]", actions=[("read_turns", {"meeting_ref": "M9", "start": 0, "end": 3})])
+
+    body = client.post("/ask", json={"question": "Anything?", "mode": "agentic"}).json()
+
+    assert body["refused"] is True
+    assert body["tool_calls"][0]["summary"].startswith("error: unknown meeting ref M9")
+
+
+def test_agentic_mode_without_an_anthropic_key_is_a_clear_503(client_without_llm):
+    response = client_without_llm.post("/ask", json={"question": "Anything at all?", "mode": "agentic"})
+
+    assert response.status_code == 503

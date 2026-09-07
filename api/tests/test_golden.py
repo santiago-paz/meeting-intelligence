@@ -36,9 +36,8 @@ def test_ids_are_unique():
 
 @pytest.mark.parametrize("q", QUESTIONS, ids=[q["id"] for q in QUESTIONS])
 def test_expected_turns_exist_and_carry_their_quote(q):
-    if q["expect_refusal"]:
-        assert q["expected_turns"] == [], "a refusal question has no supporting turns"
-        return
+    if q["expect_refusal"] and not q["expected_turns"]:
+        return  # a plain refusal; some refusals cite the evidence of absence instead
     assert q["expected_turns"], "an answerable question needs supporting turns"
     for ref in q["expected_turns"]:
         turns = TRANSCRIPTS[ref["meeting"]]

@@ -17,4 +17,6 @@ class Settings(BaseSettings):
     extraction_model: str = "claude-opus-5"
     # Thinking depth for answers: low, medium, high, xhigh, max. Traces record latency.
     answer_effort: str = "high"
+    # Tool rounds an agentic answer may use before it must answer.
+    agent_max_rounds: int = 5
     embedding_model: str = "BAAI/bge-small-en-v1.5"

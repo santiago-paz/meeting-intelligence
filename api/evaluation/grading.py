@@ -84,7 +84,8 @@ class Row(BaseModel):
     type: str
     status: str  # ok | error
     error: str | None
-    refused: bool
+    refused: bool  # the judge's call: the answer says the meetings do not contain it
+    marker_refused: bool = False  # the API's deterministic [[none]] flag, kept for comparison
     expect_refusal: bool
     retrieved_coverage: float | None
     cited_coverage: float | None
@@ -101,6 +102,8 @@ class Row(BaseModel):
     citations: list[dict]
     unsupported_claims: list[str]
     facts_present: list[bool] = []
+    rounds: int = 0
+    tool_calls: int = 0
 
 
 class Summary(BaseModel):

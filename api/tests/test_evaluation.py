@@ -114,6 +114,7 @@ async def test_judge_maps_indexed_verdicts_onto_facts_and_forbidden_claims_in_or
         "forbidden": [{"index": 0, "asserted": False}],
         "unsupported_claims": ["the moon is cheese"],
         "faithful": False,
+        "declines": True,
     })
     client = FakeJudgeClient(output)
 
@@ -127,6 +128,7 @@ async def test_judge_maps_indexed_verdicts_onto_facts_and_forbidden_claims_in_or
     assert verdict.completeness == pytest.approx(2 / 3)
     assert verdict.faithful is False
     assert verdict.unsupported_claims == ["the moon is cheese"]
+    assert verdict.declines is True
     assert verdict.cost_usd > 0
     call = client.messages.calls[0]
     assert call["model"] == JUDGE_MODEL
@@ -157,7 +159,7 @@ from evaluation.judge import JudgeVerdict, probe_expectation
 def _verdict(completeness, forbidden=False):
     return JudgeVerdict(
         facts_present=[], forbidden_asserted=[forbidden], unsupported_claims=[],
-        faithful=True, completeness=completeness, cost_usd=0.0,
+        faithful=True, declines=False, completeness=completeness, cost_usd=0.0,
     )
 
 
@@ -209,13 +211,14 @@ def _ask_response(refused: bool) -> dict:
 
 
 async def test_a_refusal_has_no_cited_claims_so_faithfulness_does_not_apply():
-    unfaithful = JudgeOutput.model_validate(
-        {"facts": [], "forbidden": [], "unsupported_claims": ["lists topics"], "faithful": False}
-    )
+    def verdict(declines: bool) -> JudgeOutput:
+        return JudgeOutput.model_validate(
+            {"facts": [], "forbidden": [], "unsupported_claims": ["lists topics"], "faithful": False, "declines": declines}
+        )
     q = _q(expect_refusal=True, must_not_claim=())
 
-    refused = await grade_one(q, FakeApi(_ask_response(True)), FakeJudgeClient(unfaithful), "m", "classic", {})
-    answered = await grade_one(q, FakeApi(_ask_response(False)), FakeJudgeClient(unfaithful), "m", "classic", {})
+    refused = await grade_one(q, FakeApi(_ask_response(True)), FakeJudgeClient(verdict(True)), "m", "classic", {})
+    answered = await grade_one(q, FakeApi(_ask_response(False)), FakeJudgeClient(verdict(False)), "m", "classic", {})
 
     assert refused.faithful is None
     assert answered.faithful is False
@@ -258,7 +261,7 @@ class FlakyJudgeClient:
 
 
 async def test_the_runner_retries_the_judge_once_before_recording_an_error():
-    ok = JudgeOutput.model_validate({"facts": [{"index": 0, "present": True}], "forbidden": [], "unsupported_claims": [], "faithful": True})
+    ok = JudgeOutput.model_validate({"facts": [{"index": 0, "present": True}], "forbidden": [], "unsupported_claims": [], "faithful": True, "declines": False})
     client = FlakyJudgeClient(ok)
 
     row = await grade_one(_q(), FakeApi(_ask_response(False)), client, "m", "classic", {})
@@ -266,3 +269,62 @@ async def test_the_runner_retries_the_judge_once_before_recording_an_error():
     assert row.status == "ok"
     assert row.completeness == 1.0
     assert client.calls == 2
+
+
+async def test_refusal_in_the_eval_is_the_judges_call_not_the_marker():
+    declines = JudgeOutput.model_validate(
+        {"facts": [], "forbidden": [], "unsupported_claims": [], "faithful": True, "declines": True}
+    )
+    q = _q(expect_refusal=True, must_not_claim=())
+    # the API said "not refused" (it cited turns) but the answer says the meetings do not cover it
+    response = _ask_response(False)
+
+    row = await grade_one(q, FakeApi(response), FakeJudgeClient(declines), "m", "classic", {})
+
+    assert row.refused is True
+    assert row.marker_refused is False
+    assert row.faithful is None
+
+
+from evaluation.runner import regrade_rows
+
+
+async def test_regrade_rejudges_saved_answers_and_keeps_the_api_facts():
+    declines = JudgeOutput.model_validate(
+        {"facts": [{"index": 0, "present": True}], "forbidden": [], "unsupported_claims": [], "faithful": True, "declines": True}
+    )
+    saved = _row(id="x", refused=False, marker_refused=False, expect_refusal=True, completeness=0.0,
+                 faithful=False, latency_ms=4321, cost_usd=0.05, answer="The meetings do not cover it.")
+    golden = [_q(expect_refusal=True, must_not_claim=())]
+
+    rows = await regrade_rows([saved], golden, FakeJudgeClient(declines), "m", {})
+
+    assert rows[0].refused is True and rows[0].completeness == 1.0 and rows[0].faithful is None
+    assert (rows[0].latency_ms, rows[0].cost_usd, rows[0].marker_refused) == (4321, 0.05, False)
+
+
+class BrokenJudgeClient:
+    def __init__(self):
+        self.messages = self
+
+    async def parse(self, **kwargs):
+        raise RuntimeError("credit balance is too low")
+
+
+async def test_regrade_records_a_judge_failure_as_an_error_row_instead_of_crashing():
+    saved = _row(id="x", answer="anything")
+
+    rows = await regrade_rows([saved], [_q()], BrokenJudgeClient(), "m", {})
+
+    assert rows[0].status == "error"
+    assert "credit balance" in rows[0].error
+    assert rows[0].answer == "anything", "the saved answer is kept for a later regrade"
+
+
+async def test_rows_record_rounds_and_tool_calls_from_agentic_answers():
+    ok = JudgeOutput.model_validate({"facts": [{"index": 0, "present": True}], "forbidden": [], "unsupported_claims": [], "faithful": True, "declines": False})
+    response = {**_ask_response(False), "rounds": 2, "tool_calls": [{"name": "read_turns"}, {"name": "search_transcripts"}]}
+
+    row = await grade_one(_q(), FakeApi(response), FakeJudgeClient(ok), "m", "agentic", {})
+
+    assert (row.rounds, row.tool_calls) == (2, 2)

@@ -51,3 +51,32 @@ class FakeExtractor:
 
     async def extract(self, numbered_transcript: str, meeting_date):
         return self.extraction
+
+
+class FakeAgent:
+    """Runs scripted tool calls through the real executor, then returns canned text."""
+
+    def __init__(self, text: str, actions=()) -> None:
+        self.text = text
+        self.actions = list(actions)
+        self.systems: list[list[dict]] = []
+
+    async def run(self, *, system, question, execute_tool, max_rounds=5, on_tool_call=None):
+        from app.agentic import AgentRun, ToolError
+        from app.models import ToolCall
+
+        self.systems.append(system)
+        calls = []
+        for i, (name, inputs) in enumerate(self.actions, 1):
+            try:
+                _, summary = await execute_tool(name, inputs)
+            except ToolError as exc:
+                summary = f"error: {exc}"
+            call = ToolCall(round=i, name=name, input=inputs, summary=summary, latency_ms=1)
+            calls.append(call)
+            if on_tool_call is not None:
+                await on_tool_call(call)
+        return AgentRun(
+            text=self.text, model="fake-agent", stop_reason="end_turn", rounds=len(calls),
+            tool_calls=calls, input_tokens=100, output_tokens=20, cache_read_tokens=0, cache_write_tokens=0,
+        )

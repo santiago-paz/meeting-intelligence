@@ -11,8 +11,9 @@ from psycopg import AsyncConnection
 from psycopg_pool import AsyncConnectionPool
 from starlette.concurrency import run_in_threadpool
 
+from app.agentic import Agent, ClaudeAgent
 from app.answering import Answerer, ClaudeAnswerer
-from app.ask import AnswerUnavailable, answer_classic
+from app.ask import AnswerUnavailable, answer_agentic, answer_classic
 from app.chunking import build_chunks, render_numbered_turns
 from app.db import migrate
 from app.embeddings import Embedder, FastEmbedEmbedder
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
     app.state.enricher = None
     app.state.answerer = None
     app.state.extractor = None
+    app.state.agent = None
     if settings.anthropic_api_key:
         claude = AsyncAnthropic(api_key=settings.anthropic_api_key, base_url=settings.claude_base_url)
         app.state.enricher = ClaudeEnricher(claude, model=settings.context_header_model)
@@ -43,6 +45,7 @@ async def lifespan(app: FastAPI):
             claude, model=settings.answer_model, effort=settings.answer_effort
         )
         app.state.extractor = ClaudeExtractor(claude, model=settings.extraction_model)
+        app.state.agent = ClaudeAgent(claude, model=settings.answer_model, effort=settings.answer_effort)
     yield
     await pool.close()
 
@@ -75,14 +78,13 @@ def get_extractor(request: Request) -> Extractor:
     return extractor
 
 
-def get_answerer(request: Request) -> Answerer:
-    answerer = request.app.state.answerer
-    if answerer is None:
-        raise HTTPException(
-            status_code=503,
-            detail="ANTHROPIC_API_KEY is not set; answering needs it.",
-        )
-    return answerer
+def get_agent(request: Request) -> Agent | None:
+    """None when no key is configured; the endpoint turns that into a 503 for the mode that needs it."""
+    return request.app.state.agent
+
+
+def get_answerer(request: Request) -> Answerer | None:
+    return request.app.state.answerer
 
 
 @lru_cache(maxsize=1)
@@ -99,8 +101,9 @@ def get_embedder(request: Request) -> Embedder:
 Conn = Annotated[AsyncConnection, Depends(get_conn)]
 EnricherDep = Annotated[Enricher, Depends(get_enricher)]
 EmbedderDep = Annotated[Embedder, Depends(get_embedder)]
-AnswererDep = Annotated[Answerer, Depends(get_answerer)]
+AnswererDep = Annotated[Answerer | None, Depends(get_answerer)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
+AgentDep = Annotated[Agent | None, Depends(get_agent)]
 
 
 @app.post("/meetings", response_model=MeetingCreated)
@@ -162,11 +165,27 @@ async def read_meeting(meeting_id: UUID, conn: Conn) -> MeetingDetail:
 
 
 @app.post("/ask", response_model=AskResponse)
-async def ask(body: AskRequest, conn: Conn, answerer: AnswererDep, embedder: EmbedderDep) -> AskResponse:
-    """Answer a question from the meetings. Classic mode: the system retrieves
-    the closest chunks, the model answers from them with inline citations, and
-    every citation is checked against what the model was shown."""
+async def ask(
+    body: AskRequest, conn: Conn, embedder: EmbedderDep, answerer: AnswererDep, agent: AgentDep, request: Request
+) -> AskResponse:
+    """Answer a question from the meetings.
+
+    Classic mode: the system retrieves the closest chunks and the model answers
+    from them. Agentic mode: the model reads a table of contents and fetches
+    what it needs with tools. Both cite inline, and every citation is checked
+    against what the model was actually shown."""
+    service = agent if body.mode == "agentic" else answerer
+    if service is None:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set; answering needs it.")
     try:
+        if body.mode == "agentic":
+            return await answer_agentic(
+                conn,
+                question=body.question,
+                embedder=embedder,
+                agent=agent,
+                max_rounds=request.app.state.settings.agent_max_rounds,
+            )
         return await answer_classic(
             conn,
             question=body.question,

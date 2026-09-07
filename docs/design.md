@@ -141,15 +141,31 @@ the extraction stays for the meeting page and for agentic mode, where the
 model reads a row's neighbourhood before citing. The proper fix, a turn range
 per row, is listed under next steps.
 
-In agentic mode the model decides. The system prompt carries an index (each
-meeting with title, date, speakers and a one-paragraph summary, plus every
-decision and action item with its turn id), cached between questions. The
-model gets two tools, `search_transcripts(query, meeting?)` and
-`read_turns(meeting, start, end)`, and the SDK's tool runner loops for at most
-five rounds. "What did we decide?" is answered from the index with no tool
-call. "What exactly did Ana say about legal?" takes a search and maybe a read.
-Its weaknesses are latency, cost and the extra ways it can fail. Tool calls
-stream to the UI, so the wait reads as work.
+In agentic mode the model decides. The system prompt carries a table of
+contents (each meeting with title, date, speakers, its chunk headers as an
+outline, and every decision and action item with its turn number), cached
+between questions. The model gets two tools, `search_transcripts(query,
+meeting?)` and `read_turns(meeting, start, end)`, and a hand-written loop
+allows at most five tool rounds before forcing an answer. Only turns fetched
+through a tool are citable; the table of contents is navigation, not evidence.
+That is the structural answer to what sank the index in classic mode: an
+extracted row anchors to one turn but summarises several, so the model must
+read the neighbourhood before it may cite. Its costs are latency, tokens and
+the extra ways a loop can fail; tool errors go back to the model as error
+results, parallel calls are answered in one message, and tool calls stream to
+the UI so the wait reads as work. The loop is hand-written rather than the
+SDK's tool runner so the round cap, the per-call record and the streamed
+events live in one place and run against a scripted client in tests.
+
+Measured on the same seed as classic (two runs each), agentic mode matched
+classic on completeness (94 to 96% against 94 to 95%) and on coverage, fixed
+the aggregation question classic kept missing (Diego's commitments, 0.89 and
+1.00 against 0.78), cost about the same in dollars because the table of
+contents is served from the prompt cache, took about half again as long
+(10.9 s against 7.3 s), and cited more sparsely: the model read a range and
+cited the neighbouring turn, which the faithfulness check flags (60 to 76%
+against 89 to 95%). A prompt rule to cite every turn a sentence draws on is
+in place and unmeasured until the next run.
 
 Both modes exist because the comparison is the interesting result. The eval
 runs the same golden set in both modes and prints one table. Classic should win
@@ -193,7 +209,12 @@ run counts, `eval.py --check-judge` feeds the judge the reference answer, "I
 don't know", and an answer built from the forbidden claims, and fails if the
 verdicts are not what a working judge must produce. Faithfulness applies to
 answered questions only: a refusal makes no cited claim, and a refusal that
-invents things is caught by the forbidden-claim check instead.
+invents things is caught by the forbidden-claim check instead. Whether an
+answer is a refusal is the judge's call (`declines`), because a good refusal
+often cites the turns that show what the meetings do cover; the API's
+`[[none]]` marker stays as the deterministic flag the UI uses. A saved run
+can be re-judged without asking the API again (`eval.py --regrade`), so a
+judge change costs cents rather than dollars.
 
 Unit tests cover the deterministic parts (parser, chunker, citation check).
 Storage and API tests run against the Postgres from Compose and are skipped

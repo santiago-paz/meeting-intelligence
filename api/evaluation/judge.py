@@ -28,6 +28,7 @@ Judge every item independently and literally:
 - A key fact is present only if the answer text itself states it; paraphrase is fine, inference is not. The cited lines are not the answer: a fact that appears only in the cited lines is absent.
 - A forbidden claim is asserted only if the answer text states it as true.
 - Faithfulness is the one place the cited lines matter: a factual sentence of the answer is unsupported if the cited lines do not back it. A plain statement that the meetings do not cover the question counts as supported.
+- declines is true when the answer says the meetings do not contain what the question asks for, even if it cites turns to show what they do contain. It is false when the answer provides what was asked.
 Length and style earn nothing."""
 
 
@@ -46,6 +47,7 @@ class JudgeOutput(BaseModel):
     forbidden: list[ForbiddenVerdict]
     unsupported_claims: list[str]
     faithful: bool
+    declines: bool
 
 
 class JudgeVerdict(BaseModel):
@@ -53,6 +55,7 @@ class JudgeVerdict(BaseModel):
     forbidden_asserted: list[bool]
     unsupported_claims: list[str]
     faithful: bool
+    declines: bool
     completeness: float | None
     cost_usd: float
 
@@ -116,6 +119,7 @@ async def judge(
         forbidden_asserted=forbidden_asserted,
         unsupported_claims=output.unsupported_claims,
         faithful=output.faithful,
+        declines=output.declines,
         completeness=mean(float(p) for p in facts_present) if key_facts else None,
         cost_usd=cost_usd(model, input_tokens=usage.input_tokens, output_tokens=usage.output_tokens),
     )
