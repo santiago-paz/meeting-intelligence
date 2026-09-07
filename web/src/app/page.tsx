@@ -34,7 +34,7 @@ export default async function Home() {
         lede="Upload a transcript and read it as a timeline."
       />
       <Card>
-        <CardHeader className="border-b">
+        <CardHeader className="border-b max-sm:flex max-sm:flex-col max-sm:gap-3">
           <CardTitle>Transcripts</CardTitle>
           <CardDescription>
             A .txt with one line per turn, like{" "}
@@ -82,7 +82,7 @@ export default async function Home() {
           )}
         </CardContent>
       </Card>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className={`mt-4 grid gap-4 ${samplesMissing ? "lg:grid-cols-2" : ""}`}>
         {samplesMissing && (
           <Card>
             <CardHeader>

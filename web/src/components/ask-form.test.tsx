@@ -83,4 +83,21 @@ describe("AskForm test mode", () => {
 
     expect(screen.getByRole("button", { name: "Who leads the pricing page redesign?" })).toBeDisabled();
   });
+
+  it("does not submit again while an answer is pending", () => {
+    const onAsk = vi.fn();
+    render(<AskForm busy onAsk={onAsk} testMode={status} />);
+    type("Who spoke?");
+    expect(onAsk).not.toHaveBeenCalled();
+  });
+
+  it("keeps Enter available to finish composing text", () => {
+    const onAsk = vi.fn();
+    render(<AskForm busy={false} onAsk={onAsk} testMode={status} />);
+    const question = screen.getByLabelText("Question");
+    fireEvent.change(question, { target: { value: "Who spoke?" } });
+    expect(fireEvent.keyDown(question, { key: "Enter", isComposing: true })).toBe(true);
+    expect(onAsk).not.toHaveBeenCalled();
+  });
+
 });

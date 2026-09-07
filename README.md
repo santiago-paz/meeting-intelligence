@@ -4,6 +4,10 @@ Upload meeting transcripts, then ask what was discussed, decided and assigned.
 Every claim in an answer points at the turn it comes from, and the code checks
 that pointer before the answer reaches the screen.
 
+![Meeting Intelligence: transcript library and recent questions](docs/screenshots/cover.jpg)
+
+[Explore the screens](#what-you-get) · [Quick setup](#1-quick-setup) · [Architecture](#2-architecture-overview)
+
 This is my take-home for NewPage (option 3), done in a weekend. I built it
 on two layers: turn-aware chunks with embeddings for search, plus the
 decisions and action items extracted from each transcript, each anchored to
@@ -492,7 +496,9 @@ reading diffs.
 
 ## What you get
 
-Three pages and one API.
+Three pages and one API. These screenshots show the app with its fictional
+sample meetings. Recorded answers are labeled as test mode; trace totals
+reflect the local demo history at capture time.
 
 **Meetings.** Upload a `.txt` transcript with one line per turn, such as
 `[00:12:04] Marco: Arrancamos.` The meeting page shows the transcript as a
@@ -500,6 +506,10 @@ timeline. Every timecode is a link to its turn, and a linked turn gets a
 highlighter stroke. The decisions and action items extracted at upload come
 back with the meeting from the API; a panel for them on this page is on the
 list below.
+
+![Transcript timeline with speaker colors and a cited turn highlighted in green](docs/screenshots/transcript.jpg)
+
+*Follow a citation to the exact speaker and moment in the original transcript.*
 
 **Ask.** A question box with a Classic and an Agentic mode. While the answer
 is on its way, the page shows what the model reads, one line per tool call as
@@ -510,6 +520,10 @@ with the same highlighter the transcript uses. A fold shows how the answer
 was made: tool calls or retrieved excerpts, tokens, cache hits and cost.
 Answers stack under the box, newest first. The newest is open and the earlier
 ones fold under their question; press a question to open or fold its answer.
+
+![Recorded agentic answer showing Diego's commitments across meetings with timestamped citations](docs/screenshots/answer.jpg)
+
+*An answer in the trace detail view, with a source link beside each claim.*
 
 **Test mode.** A switch under the question box, with a line that says why it
 is there. On, it lists the sample questions grouped by what each one tests,
@@ -523,9 +537,17 @@ database that holds a seeded corpus and an eval run of each mode;
 `api/tests/test_recording.py` fails when the transcripts, the chunker or the
 golden set change under it.
 
+![Ask page with Classic and Agentic modes, test mode enabled and grouped sample questions](docs/screenshots/ask.jpg)
+
+*Try the sample questions without an API key or model costs.*
+
 **Traces.** Every answered question with its mode, citations, latency and
 cost, and a detail page with the same answer view plus the tool arguments
 and the token breakdown.
+
+![Trace history with question modes, citation counts, latency, cost and summary metrics](docs/screenshots/traces.jpg)
+
+*Compare how each question was answered and inspect its recorded trace.*
 
 **API.** `POST /meetings`, `POST /meetings/samples`, `GET /meetings`,
 `GET /meetings/{id}`, `POST /ask`, `POST /ask/stream`, `GET /traces`,

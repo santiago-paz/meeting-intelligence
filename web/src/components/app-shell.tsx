@@ -65,13 +65,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-30 grid h-(--header-height) grid-cols-[1fr_auto_1fr] items-center gap-3 border-b bg-header px-3 sm:px-4">
+    <header className="sticky top-0 z-30 grid h-(--header-height) grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[1fr_auto_1fr] items-center gap-3 border-b bg-header px-3 sm:px-4">
       <div className="flex min-w-0 items-center gap-1.5">
         <MenuButton />
         <Brand />
       </div>
       <SearchMenu />
-      <div aria-hidden="true" />
+      <div aria-hidden="true" className="max-sm:hidden" />
     </header>
   );
 }

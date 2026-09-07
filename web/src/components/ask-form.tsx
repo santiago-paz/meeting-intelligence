@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowUp } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react";
 
@@ -48,6 +50,7 @@ export function AskForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const trimmed = question.trim();
     if (!trimmed) {
       setEmpty(true);
@@ -59,14 +62,14 @@ export function AskForm({
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
     }
   }
 
   return (
-    <form aria-label="Ask the meetings" onSubmit={submit} className="flex flex-col gap-4 rounded-xl border bg-card p-4 text-card-foreground">
+    <form aria-label="Ask the meetings" onSubmit={submit} className="flex flex-col gap-5 rounded-xl border bg-card p-4 shadow-sm sm:p-6 text-card-foreground">
       <Field>
         <FieldLabel htmlFor="question" className="eyebrow text-muted-foreground">
           Question
@@ -77,19 +80,26 @@ export function AskForm({
           name="question"
           rows={2}
           value={question}
-          onChange={(event) => setQuestion(event.target.value)}
+          onChange={(event) => {
+            setQuestion(event.target.value);
+            if (empty) setEmpty(false);
+          }}
           onKeyDown={onKeyDown}
           placeholder="What did Diego commit to?"
           autoComplete="off"
           aria-invalid={empty || undefined}
-          className="min-h-16 resize-y text-base"
+          aria-describedby={empty ? "question-error" : "question-hint"}
+          className="min-h-24 resize-y text-base leading-relaxed"
         />
+        <p id="question-hint" className="text-xs text-muted-foreground">Enter to ask · Shift + Enter for a new line</p>
+        {empty && <FieldError id="question-error">Type a question first.</FieldError>}
       </Field>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <fieldset className="flex min-w-0 flex-col gap-2">
-          <legend className="eyebrow mb-2 text-muted-foreground">Mode</legend>
+          <legend id={`${modeId}-label`} className="eyebrow mb-2 text-muted-foreground">Mode</legend>
           <RadioGroup
             name="mode"
+            aria-labelledby={`${modeId}-label`}
             value={mode}
             onValueChange={(value) => setMode(value as AskMode)}
             className="flex w-fit gap-0 rounded-lg border bg-background p-0.5"
@@ -99,7 +109,7 @@ export function AskForm({
                 <RadioGroupPrimitive.Item id={`${modeId}-${option.value}`} value={option.value} className="peer sr-only" />
                 <Label
                   htmlFor={`${modeId}-${option.value}`}
-                  className="cursor-pointer rounded-md px-3 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring/60 peer-data-checked:bg-secondary peer-data-checked:text-foreground"
+                  className="cursor-pointer rounded-md px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring/60 peer-data-[state=checked]:bg-secondary peer-data-[state=checked]:text-foreground peer-data-[state=checked]:shadow-sm"
                 >
                   {option.label}
                 </Label>
@@ -108,12 +118,12 @@ export function AskForm({
           </RadioGroup>
           <p className="text-xs text-muted-foreground">{MODES.find((option) => option.value === mode)?.hint}</p>
         </fieldset>
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy} className="h-10 min-w-24">
+          {busy ? <Spinner role="presentation" aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
           {busy ? "Answering…" : "Ask"}
         </Button>
       </div>
-      {empty && <FieldError>Type a question first.</FieldError>}
-      <section aria-labelledby={switchLabelId} className="mt-1 flex flex-col gap-4 border-t border-dashed pt-4">
+      <section aria-labelledby={switchLabelId} className="flex flex-col gap-4 border-t border-dashed pt-5">
         <div className="flex items-start gap-3">
           <Switch
             id={switchId}
@@ -123,14 +133,14 @@ export function AskForm({
             aria-describedby={switchWhyId}
             className="mt-0.5"
           />
-          <div className="flex flex-col gap-1">
+          <div className="min-w-0 flex-1 flex flex-col gap-1.5">
             <Label id={switchLabelId} htmlFor={switchId} className="text-sm font-semibold">
               Test mode
+              <span aria-hidden="true" className={`rounded-md px-1.5 py-0.5 text-[0.6875rem] font-medium ${replay ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>{replay ? "On" : "Off"}</span>
             </Label>
             <p id={switchWhyId} className="max-w-[62ch] text-xs leading-relaxed text-muted-foreground">
-              Replays answers recorded from a real run of this app, so it can be tried without an API key and nothing is
-              spent. Only the sample questions below are recorded; retrieval, the citation check and the trace still run
-              for real, and only the model’s words are played back.
+              Try answers recorded from a real run, without an API key or model costs.
+              Only the sample questions are available in test mode. Retrieval, citation checks and traces still run live.
             </p>
           </div>
         </div>
